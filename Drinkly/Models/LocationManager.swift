@@ -20,6 +20,9 @@ class LocationManager: NSObject, ObservableObject, @preconcurrency CLLocationMan
     @Published var isLoading: Bool = false
     @Published var errorMessage: String?
     
+    // Weather integration
+    weak var weatherManager: WeatherManager?
+    
     // MARK: - Private Properties
     private let locationManager = CLLocationManager()
     private let userDefaults = UserDefaults.standard
@@ -121,6 +124,9 @@ class LocationManager: NSObject, ObservableObject, @preconcurrency CLLocationMan
                         self.saveCity(city)
                         self.isLoading = false
                         self.errorMessage = nil
+                        
+                        // Fetch weather data for the new city
+                        self.weatherManager?.fetchWeather(for: city)
                     } else {
                         self.errorMessage = "Could not determine city name"
                         self.isLoading = false
@@ -150,7 +156,10 @@ class LocationManager: NSObject, ObservableObject, @preconcurrency CLLocationMan
         // Stop location updates to save battery
         locationManager.stopUpdatingLocation()
         
-        // Perform geocoding asynchronously
+        // Fetch weather data using coordinates first (faster)
+        weatherManager?.fetchWeather(latitude: location.coordinate.latitude, longitude: location.coordinate.longitude)
+        
+        // Perform geocoding asynchronously for city name
         performGeocoding(for: location)
     }
     

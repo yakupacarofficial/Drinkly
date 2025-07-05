@@ -14,10 +14,14 @@ struct SettingsView: View {
     // MARK: - Environment Objects
     @EnvironmentObject private var waterManager: WaterManager
     @EnvironmentObject private var notificationManager: NotificationManager
+    @EnvironmentObject private var achievementManager: AchievementManager
+    @EnvironmentObject private var hydrationHistory: HydrationHistory
+    @EnvironmentObject private var smartReminderManager: SmartReminderManager
     @Environment(\.dismiss) private var dismiss
     
     // MARK: - State Properties
     @State private var showingResetAlert = false
+    @State private var showingResetAllAlert = false
     @State private var notificationsEnabled: Bool = false
     @State private var reminderTime: Date = Self.loadReminderTime()
     @State private var showNotificationAlert = false
@@ -55,6 +59,14 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("This will reset your progress for today. This action cannot be undone.")
+        }
+        .alert("Reset All Progress", isPresented: $showingResetAllAlert) {
+            Button("Reset All", role: .destructive) {
+                resetAllProgress()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will reset all your progress, achievements, and data. This action cannot be undone and will start you fresh.")
         }
         .alert("Notification Permission Required", isPresented: $showNotificationAlert) {
             Button("Settings") {
@@ -243,6 +255,18 @@ struct SettingsView: View {
                     Spacer()
                 }
             }
+            
+            Button(action: {
+                showingResetAllAlert = true
+            }) {
+                HStack {
+                    Image(systemName: "trash.fill")
+                        .foregroundColor(.red)
+                    Text("Reset All Progress")
+                        .foregroundColor(.red)
+                    Spacer()
+                }
+            }
         }
     }
     
@@ -323,6 +347,25 @@ struct SettingsView: View {
             notificationManager.cancelNotification()
         }
     }
+    
+    private func resetAllProgress() {
+        // Reset all managers
+        waterManager.resetToday()
+        achievementManager.resetAllProgress()
+        hydrationHistory.resetAllData()
+        smartReminderManager.resetAllReminders()
+        
+        // Cancel all notifications
+        notificationManager.cancelAllNotifications()
+        
+        // Reset user profile to default
+        waterManager.updateUserProfile(UserProfile.default)
+        
+        // Save all changes
+        waterManager.saveData()
+        hydrationHistory.saveHistory()
+        smartReminderManager.saveReminders()
+    }
 }
 
 // MARK: - Stat Row
@@ -347,4 +390,7 @@ struct StatRow: View {
     SettingsView()
         .environmentObject(WaterManager())
         .environmentObject(NotificationManager.shared)
+        .environmentObject(AchievementManager())
+        .environmentObject(HydrationHistory())
+        .environmentObject(SmartReminderManager())
 } 

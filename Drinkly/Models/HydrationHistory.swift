@@ -276,6 +276,16 @@ class HydrationHistory: ObservableObject {
             print("[HydrationHistory] Error saving history: \(error)")
         }
     }
+    
+    /// Reset all hydration data
+    func resetAllData() {
+        dailyRecords.removeAll()
+        weeklyStats.removeAll()
+        monthlyStats.removeAll()
+        currentStreak = 0
+        longestStreak = 0
+        saveHistory()
+    }
 }
 
 // MARK: - UserProfile Extension for Goal Calculation

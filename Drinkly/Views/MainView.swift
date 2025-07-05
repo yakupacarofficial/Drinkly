@@ -13,6 +13,7 @@ struct MainView: View {
     // MARK: - Environment Objects
     @EnvironmentObject private var waterManager: WaterManager
     @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var weatherManager: WeatherManager
     @EnvironmentObject private var notificationManager: NotificationManager
     @EnvironmentObject private var performanceMonitor: PerformanceMonitor
     @EnvironmentObject private var hydrationHistory: HydrationHistory
@@ -171,26 +172,12 @@ struct MainView: View {
     // MARK: - Header Section
     private var headerSection: some View {
         VStack(spacing: 16) {
-            // Weather and location info
+            // Weather display
+            WeatherDisplayView()
+            
+            // Smart goal indicator
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(locationManager.city.isEmpty ? "Location" : locationManager.city)
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    HStack {
-                        Image(systemName: "thermometer")
-                            .foregroundColor(.orange)
-                        Text(String(format: "%.1f°C", waterManager.currentTemperature))
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Spacer()
-                
-                // Smart goal indicator
-                VStack(alignment: .trailing, spacing: 4) {
                     Text("Smart Goal")
                         .font(.caption)
                         .foregroundColor(.secondary)
@@ -440,7 +427,8 @@ struct MainView: View {
         waterManager.setDependencies(
             hydrationHistory: hydrationHistory,
             achievementManager: achievementManager,
-            smartReminderManager: smartReminderManager
+            smartReminderManager: smartReminderManager,
+            weatherManager: weatherManager
         )
         
         // Request location permissions

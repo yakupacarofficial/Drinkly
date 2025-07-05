@@ -35,6 +35,7 @@ class WaterManager: ObservableObject {
     private var hydrationHistory: HydrationHistory?
     private var achievementManager: AchievementManager?
     private var smartReminderManager: SmartReminderManager?
+    private var weatherManager: WeatherManager?
     
     // MARK: - Computed Properties
     var progressPercentage: Double {
@@ -110,11 +111,16 @@ class WaterManager: ObservableObject {
     func setDependencies(
         hydrationHistory: HydrationHistory,
         achievementManager: AchievementManager,
-        smartReminderManager: SmartReminderManager
+        smartReminderManager: SmartReminderManager,
+        weatherManager: WeatherManager
     ) {
         self.hydrationHistory = hydrationHistory
         self.achievementManager = achievementManager
         self.smartReminderManager = smartReminderManager
+        self.weatherManager = weatherManager
+        
+        // Observe weather changes
+        setupWeatherObserver()
     }
     
     /// Add water intake with comprehensive validation
@@ -224,6 +230,17 @@ class WaterManager: ObservableObject {
         $currentTemperature
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] _ in
+                self?.updateDailyGoal()
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func setupWeatherObserver() {
+        // Observe weather manager temperature changes
+        weatherManager?.$currentTemperature
+            .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
+            .sink { [weak self] temperature in
+                self?.currentTemperature = temperature
                 self?.updateDailyGoal()
             }
             .store(in: &cancellables)

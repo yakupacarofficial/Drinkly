@@ -11,6 +11,7 @@ import SwiftUI
 struct DrinklyApp: App {
     @StateObject private var waterManager = WaterManager()
     @StateObject private var locationManager = LocationManager()
+    @StateObject private var weatherManager = WeatherManager()
     @StateObject private var notificationManager = NotificationManager.shared
     @StateObject private var performanceMonitor = PerformanceMonitor.shared
     @StateObject private var hydrationHistory = HydrationHistory()
@@ -22,6 +23,7 @@ struct DrinklyApp: App {
             MainView()
                 .environmentObject(waterManager)
                 .environmentObject(locationManager)
+                .environmentObject(weatherManager)
                 .environmentObject(notificationManager)
                 .environmentObject(performanceMonitor)
                 .environmentObject(hydrationHistory)
@@ -35,6 +37,7 @@ struct DrinklyApp: App {
                     DrinkOptionsView()
                         .environmentObject(waterManager)
                         .environmentObject(locationManager)
+                        .environmentObject(weatherManager)
                         .environmentObject(notificationManager)
                         .environmentObject(performanceMonitor)
                         .environmentObject(hydrationHistory)
@@ -45,6 +48,7 @@ struct DrinklyApp: App {
                     CelebrationView(isShowing: $waterManager.showingCelebration)
                         .environmentObject(waterManager)
                         .environmentObject(locationManager)
+                        .environmentObject(weatherManager)
                         .environmentObject(notificationManager)
                         .environmentObject(performanceMonitor)
                         .environmentObject(hydrationHistory)
@@ -107,10 +111,12 @@ struct DrinklyApp: App {
         waterManager.setDependencies(
             hydrationHistory: hydrationHistory,
             achievementManager: achievementManager,
-            smartReminderManager: smartReminderManager
+            smartReminderManager: smartReminderManager,
+            weatherManager: weatherManager
         )
         
-        // Configure location manager
+        // Connect WeatherManager and LocationManager
+        locationManager.weatherManager = weatherManager
         
         // Set up notification manager
         notificationManager.configure()
@@ -140,11 +146,9 @@ struct DrinklyApp: App {
         // Load location data
         locationManager.loadLastLocation()
         
-        // Load temperature data
-        let temperature = UserDefaults.standard.double(forKey: "drinkly_last_temperature")
-        if temperature > 0 {
-            waterManager.updateTemperature(temperature)
-        }
+        // Load weather data and update water manager
+        weatherManager.loadCachedData()
+        waterManager.updateTemperature(weatherManager.currentTemperature)
         
         // Load hydration history
         hydrationHistory.loadHistory()

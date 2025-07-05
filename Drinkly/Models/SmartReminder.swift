@@ -188,6 +188,19 @@ class SmartReminderManager: ObservableObject {
         }
     }
     
+    /// Reset all reminders
+    func resetAllReminders() {
+        reminders.removeAll()
+        suggestedReminders.removeAll()
+        showingSuggestion = false
+        currentSuggestion = nil
+        
+        // Cancel all scheduled notifications
+        notificationCenter.removeAllPendingNotificationRequests()
+        
+        saveReminders()
+    }
+    
     private func createDefaultReminders() {
         if reminders.isEmpty {
             let defaultTimes = [

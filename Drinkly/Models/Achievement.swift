@@ -115,11 +115,16 @@ class AchievementManager: ObservableObject {
     private let userDefaults = UserDefaults.standard
     private let achievementsKey = "drinkly_achievements"
     private let unlockedKey = "drinkly_unlocked_achievements"
+    private let notifiedKey = "drinkly_notified_achievements"
+    
+    // Track which achievements have been notified to prevent duplicates
+    private var notifiedAchievementIds: Set<String> = []
     
     // MARK: - Initialization
     init() {
         loadAchievements()
         loadUnlockedAchievements()
+        loadNotifiedAchievements()
     }
     
     // MARK: - Public Methods
@@ -128,7 +133,14 @@ class AchievementManager: ObservableObject {
     func checkAchievements(currentStreak: Int, totalIntake: Double, consecutiveDays: Int, perfectWeek: Bool, perfectMonth: Bool) {
         var newUnlocks: [Achievement] = []
         
-        for achievement in achievements where !achievement.isUnlocked {
+        // Check only achievements that haven't been unlocked yet
+        for achievement in achievements {
+            // Skip if already unlocked
+            if isAchievementAlreadyUnlocked(achievement.id) {
+                continue
+            }
+            
+            // Check if achievement should be unlocked
             if isAchievementUnlocked(achievement, currentStreak: currentStreak, totalIntake: totalIntake, consecutiveDays: consecutiveDays, perfectWeek: perfectWeek, perfectMonth: perfectMonth) {
                 let unlockedAchievement = Achievement(
                     id: achievement.id,
@@ -180,6 +192,27 @@ class AchievementManager: ObservableObject {
         }
     }
     
+    /// Reset all achievements and progress
+    func resetAllProgress() {
+        unlockedAchievements.removeAll()
+        recentUnlocks.removeAll()
+        notifiedAchievementIds.removeAll()
+        showingUnlockAnimation = false
+        
+        saveUnlockedAchievements()
+        saveNotifiedAchievements()
+    }
+    
+    /// Check if an achievement has already been unlocked
+    private func isAchievementAlreadyUnlocked(_ achievementId: String) -> Bool {
+        return unlockedAchievements.contains { $0.id == achievementId }
+    }
+    
+    /// Check if an achievement has already been notified
+    private func isAchievementAlreadyNotified(_ achievementId: String) -> Bool {
+        return notifiedAchievementIds.contains(achievementId)
+    }
+    
     // MARK: - Private Methods
     
     private func loadUnlockedAchievements() {
@@ -189,9 +222,22 @@ class AchievementManager: ObservableObject {
         }
     }
     
+    private func loadNotifiedAchievements() {
+        if let data = userDefaults.data(forKey: notifiedKey),
+           let notifiedIds = try? JSONDecoder().decode([String].self, from: data) {
+            notifiedAchievementIds = Set(notifiedIds)
+        }
+    }
+    
     func saveUnlockedAchievements() {
         if let data = try? JSONEncoder().encode(unlockedAchievements) {
             userDefaults.set(data, forKey: unlockedKey)
+        }
+    }
+    
+    private func saveNotifiedAchievements() {
+        if let data = try? JSONEncoder().encode(Array(notifiedAchievementIds)) {
+            userDefaults.set(data, forKey: notifiedKey)
         }
     }
     
@@ -203,6 +249,17 @@ class AchievementManager: ObservableObject {
         unlockedAchievements.append(achievement)
         recentUnlocks.append(achievement)
         saveUnlockedAchievements()
+        
+        // Only show notification if not already notified
+        if !isAchievementAlreadyNotified(achievement.id) {
+            showUnlockNotification(for: achievement)
+        }
+    }
+    
+    private func showUnlockNotification(for achievement: Achievement) {
+        // Mark as notified
+        notifiedAchievementIds.insert(achievement.id)
+        saveNotifiedAchievements()
         
         // Show unlock animation
         showingUnlockAnimation = true

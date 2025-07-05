@@ -71,6 +71,15 @@ enum Constants {
         static let progressStrokeWidth: CGFloat = 20
     }
     
+    // MARK: - Weather API
+    
+    /// OpenWeatherMap API configuration
+    enum WeatherAPI {
+        static let baseURL = "https://api.openweathermap.org/data/2.5"
+        static let apiKey = "00ddac1192baf9f196b79a6dbabffa9d" // OpenWeatherMap API Key
+        static let cacheTimeout: TimeInterval = 3600 // 1 hour cache
+    }
+    
     // MARK: - Messages
     
     /// App messages
@@ -81,5 +90,7 @@ enum Constants {
         static let dataSaveError = "Failed to save data"
         static let locationError = "Failed to get city"
         static let cityNotFound = "Could not determine city name"
+        static let weatherFetchError = "Failed to fetch weather data"
+        static let networkError = "Network error. Please check your connection."
     }
 } 
