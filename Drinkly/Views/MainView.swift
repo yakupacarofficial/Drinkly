@@ -571,6 +571,7 @@ struct ReminderPreviewRow: View {
     MainView()
         .environmentObject(WaterManager())
         .environmentObject(LocationManager())
+        .environmentObject(WeatherManager())
         .environmentObject(NotificationManager.shared)
         .environmentObject(PerformanceMonitor.shared)
         .environmentObject(HydrationHistory())

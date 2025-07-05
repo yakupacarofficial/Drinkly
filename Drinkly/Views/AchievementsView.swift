@@ -439,6 +439,12 @@ struct CategoryProgressRow: View {
 // MARK: - Preview
 #Preview {
     AchievementsView()
-        .environmentObject(AchievementManager())
+        .environmentObject(WaterManager())
+        .environmentObject(LocationManager())
+        .environmentObject(WeatherManager())
+        .environmentObject(NotificationManager.shared)
+        .environmentObject(PerformanceMonitor.shared)
         .environmentObject(HydrationHistory())
+        .environmentObject(AchievementManager())
+        .environmentObject(SmartReminderManager())
 } 

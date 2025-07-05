@@ -134,5 +134,12 @@ struct ProgressCircleView: View {
 #Preview {
     ProgressCircleView()
         .environmentObject(WaterManager())
+        .environmentObject(LocationManager())
+        .environmentObject(WeatherManager())
+        .environmentObject(NotificationManager.shared)
+        .environmentObject(PerformanceMonitor.shared)
+        .environmentObject(HydrationHistory())
+        .environmentObject(AchievementManager())
+        .environmentObject(SmartReminderManager())
         .padding()
 } 

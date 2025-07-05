@@ -484,5 +484,12 @@ struct ChartData: Identifiable {
 // MARK: - Preview
 #Preview {
     StatisticsView()
+        .environmentObject(WaterManager())
+        .environmentObject(LocationManager())
+        .environmentObject(WeatherManager())
+        .environmentObject(NotificationManager.shared)
+        .environmentObject(PerformanceMonitor.shared)
         .environmentObject(HydrationHistory())
+        .environmentObject(AchievementManager())
+        .environmentObject(SmartReminderManager())
 } 

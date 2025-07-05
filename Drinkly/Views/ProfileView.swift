@@ -317,4 +317,11 @@ extension UserProfile.ActivityLevel {
 #Preview {
     ProfileView()
         .environmentObject(WaterManager())
+        .environmentObject(LocationManager())
+        .environmentObject(WeatherManager())
+        .environmentObject(NotificationManager.shared)
+        .environmentObject(PerformanceMonitor.shared)
+        .environmentObject(HydrationHistory())
+        .environmentObject(AchievementManager())
+        .environmentObject(SmartReminderManager())
 } 
