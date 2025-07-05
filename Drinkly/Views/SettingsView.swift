@@ -1,0 +1,349 @@
+//
+//  SettingsView.swift
+//  Drinkly
+//
+//  Created by Yakup ACAR on 5.07.2025.
+//
+
+import SwiftUI
+import UserNotifications
+
+/// Settings view for configuring app preferences
+struct SettingsView: View {
+    
+    // MARK: - Environment Objects
+    @EnvironmentObject private var waterManager: WaterManager
+    @EnvironmentObject private var notificationManager: NotificationManager
+    @Environment(\.dismiss) private var dismiss
+    
+    // MARK: - State Properties
+    @State private var showingResetAlert = false
+    @State private var notificationsEnabled: Bool = false
+    @State private var reminderTime: Date = Self.loadReminderTime()
+    @State private var showNotificationAlert = false
+    @State private var showingProfileView = false
+    
+    var body: some View {
+        NavigationView {
+            List {
+                profileSection
+                dailyGoalSection
+                smartGoalSection
+                notificationSection
+                statisticsSection
+                actionsSection
+                aboutSection
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.large)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    saveButton
+                }
+                ToolbarItem(placement: .navigationBarLeading) {
+                    cancelButton
+                }
+            }
+        }
+        .onAppear {
+            loadSettings()
+        }
+        .alert("Reset Today's Progress", isPresented: $showingResetAlert) {
+            Button("Reset", role: .destructive) {
+                waterManager.resetToday()
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("This will reset your progress for today. This action cannot be undone.")
+        }
+        .alert("Notification Permission Required", isPresented: $showNotificationAlert) {
+            Button("Settings") {
+                if let settingsUrl = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(settingsUrl)
+                }
+            }
+            Button("Cancel", role: .cancel) { }
+        } message: {
+            Text("Please enable notifications in Settings to receive daily reminders.")
+        }
+        .sheet(isPresented: $showingProfileView, onDismiss: {
+            // Ensure UI updates after profile change
+            // No-op, as waterManager.dailyGoal is @Published
+        }) {
+            ProfileView(existingProfile: waterManager.userProfile)
+                .environmentObject(waterManager)
+        }
+    }
+    
+    // MARK: - Private Views
+    
+    private var profileSection: some View {
+        Section("Profile") {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Image(systemName: "person.circle.fill")
+                        .foregroundColor(.blue)
+                        .font(.title2)
+                    
+                    VStack(alignment: .leading, spacing: 2) {
+                        if let profile = waterManager.userProfile {
+                            Text("\(profile.age) years, \(String(format: "%.0f", profile.weight))kg")
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                            Text(profile.activityLevel.displayName)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                        } else {
+                            Text("Profile not set")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                    }
+                    
+                    Spacer()
+                    
+                    Button("Edit") {
+                        showingProfileView = true
+                    }
+                    .foregroundColor(.blue)
+                }
+                
+                if waterManager.userProfile != nil {
+                    Text("Personalized goal calculation enabled")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                } else {
+                    Text("Set up your profile for personalized goals")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+    
+    private var dailyGoalSection: some View {
+        Section("Daily Goal") {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Text("Target Water Intake")
+                        .font(.headline)
+                    Spacer()
+                    Text("\(String(format: "%.1f", waterManager.dailyGoal))L")
+                        .font(.title2)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                }
+                
+                Slider(value: Binding(
+                    get: { waterManager.dailyGoal },
+                    set: { newValue in waterManager.setDailyGoal(newValue) }
+                ), in: 1.0...5.0, step: 0.1)
+                .accentColor(.blue)
+                .disabled(waterManager.userProfile != nil)
+                .opacity(waterManager.userProfile != nil ? 0.5 : 1.0)
+                
+                HStack {
+                    Text("1.0L")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                    Text("5.0L")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                if waterManager.userProfile != nil {
+                    Text("Personalized goal is active. Adjust your profile to change your goal.")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+            }
+            .padding(.vertical, 8)
+        }
+    }
+    
+    private var smartGoalSection: some View {
+        Section("Smart Water Goal") {
+            Toggle(isOn: $waterManager.smartGoalEnabled) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Weather-based Goal")
+                        .font(.headline)
+                    Text("Adjusts your daily goal based on temperature")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .onChange(of: waterManager.smartGoalEnabled) { oldValue, newValue in
+                waterManager.toggleSmartGoal()
+            }
+            .tint(.blue)
+            
+            if waterManager.smartGoalEnabled && waterManager.currentTemperature > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Image(systemName: "thermometer")
+                            .foregroundColor(.orange)
+                        Text("Current Temperature: \(String(format: "%.1f", waterManager.currentTemperature))°C")
+                            .font(.subheadline)
+                    }
+                    
+                    HStack {
+                        Image(systemName: "drop.fill")
+                            .foregroundColor(.blue)
+                        Text("Smart Goal: \(String(format: "%.1f", waterManager.dailyGoal))L")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                    }
+                }
+                .padding(.vertical, 4)
+            }
+        }
+    }
+    
+    private var notificationSection: some View {
+        Section("Daily Reminder") {
+            Toggle(isOn: $notificationsEnabled) {
+                Text("Enable Daily Reminder")
+            }
+            .onChange(of: notificationsEnabled) { oldValue, newValue in
+                handleNotificationToggle(enabled: newValue)
+            }
+            .tint(.blue)
+            
+            if notificationsEnabled {
+                DatePicker("Reminder Time", selection: $reminderTime, displayedComponents: .hourAndMinute)
+                    .datePickerStyle(.compact)
+                    .onChange(of: reminderTime) { oldValue, newValue in
+                        saveReminderTime(newValue)
+                    }
+            }
+        }
+    }
+    
+    private var statisticsSection: some View {
+        Section("Today's Statistics") {
+            StatRow(title: "Current Intake", value: "\(String(format: "%.1f", waterManager.currentAmount))L")
+            StatRow(title: "Remaining", value: "\(String(format: "%.1f", waterManager.remainingAmount))L")
+            StatRow(title: "Progress", value: "\(Int(waterManager.progressPercentage * 100))%")
+            StatRow(title: "Drinks Today", value: "\(waterManager.todayDrinks.count)")
+        }
+    }
+    
+    private var actionsSection: some View {
+        Section("Actions") {
+            Button(action: {
+                showingResetAlert = true
+            }) {
+                HStack {
+                    Image(systemName: "arrow.clockwise")
+                        .foregroundColor(.orange)
+                    Text("Reset Today's Progress")
+                        .foregroundColor(.primary)
+                    Spacer()
+                }
+            }
+        }
+    }
+    
+    private var aboutSection: some View {
+        Section("About") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Drinkly")
+                    .font(.headline)
+                    .fontWeight(.semibold)
+                Text("Your daily water companion")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Text("Version 1.0.0")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            .padding(.vertical, 4)
+        }
+    }
+    
+    private var saveButton: some View {
+        Button("Save") {
+            saveSettings()
+            dismiss()
+        }
+        .foregroundColor(.blue)
+    }
+    
+    private var cancelButton: some View {
+        Button("Cancel") {
+            dismiss()
+        }
+        .foregroundColor(.secondary)
+    }
+    
+    // MARK: - Private Methods
+    
+    private static func loadReminderTime() -> Date {
+        let components = UserDefaults.standard.dictionary(forKey: "drinkly_reminder_time") as? [String: Int]
+        var date = Date()
+        if let hour = components?["hour"], let minute = components?["minute"] {
+            date = Calendar.current.date(bySettingHour: hour, minute: minute, second: 0, of: Date()) ?? Date()
+        }
+        return date
+    }
+    
+    private func loadSettings() {
+        notificationManager.checkAuthorizationStatus { granted in
+            notificationsEnabled = granted && UserDefaults.standard.object(forKey: "drinkly_reminder_time") != nil
+        }
+    }
+    
+    private func saveSettings() {
+        
+        if notificationsEnabled {
+            let comps = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
+            notificationManager.scheduleDailyNotification(hour: comps.hour ?? 9, minute: comps.minute ?? 0)
+            saveReminderTime(reminderTime)
+        } else {
+            notificationManager.cancelNotification()
+        }
+    }
+    
+    private func saveReminderTime(_ date: Date) {
+        let comps = Calendar.current.dateComponents([.hour, .minute], from: date)
+        UserDefaults.standard.set(["hour": comps.hour ?? 9, "minute": comps.minute ?? 0], forKey: "drinkly_reminder_time")
+    }
+    
+    private func handleNotificationToggle(enabled: Bool) {
+        if enabled {
+            notificationManager.requestAuthorization { granted in
+                if !granted {
+                    notificationsEnabled = false
+                    showNotificationAlert = true
+                }
+            }
+        } else {
+            notificationManager.cancelNotification()
+        }
+    }
+}
+
+// MARK: - Stat Row
+struct StatRow: View {
+    let title: String
+    let value: String
+    
+    var body: some View {
+        HStack {
+            Text(title)
+                .foregroundColor(.primary)
+            Spacer()
+            Text(value)
+                .fontWeight(.semibold)
+                .foregroundColor(.blue)
+        }
+    }
+}
+
+// MARK: - Preview
+#Preview {
+    SettingsView()
+        .environmentObject(WaterManager())
+        .environmentObject(NotificationManager.shared)
+} 
