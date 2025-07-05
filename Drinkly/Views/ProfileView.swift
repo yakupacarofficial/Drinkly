@@ -193,13 +193,27 @@ struct ProfileView: View {
     
     // MARK: - Validation
     private var isFormValid: Bool {
-        userProfile.age >= 10 && userProfile.age <= 100 &&
-        userProfile.weight >= 30 && userProfile.weight <= 200
+        let ageValid = userProfile.age >= 10 && userProfile.age <= 100
+        let weightValid = userProfile.weight >= 30 && userProfile.weight <= 200
+        return ageValid && weightValid
     }
     
     private func saveProfile() {
         guard isFormValid else {
             validationMessage = "Please enter valid age (10-100) and weight (30-200 kg)."
+            showingValidationAlert = true
+            return
+        }
+        
+        // Additional validation for edge cases
+        if userProfile.age < 10 || userProfile.age > 100 {
+            validationMessage = "Age must be between 10 and 100 years."
+            showingValidationAlert = true
+            return
+        }
+        
+        if userProfile.weight < 30 || userProfile.weight > 200 {
+            validationMessage = "Weight must be between 30 and 200 kg."
             showingValidationAlert = true
             return
         }
@@ -211,16 +225,22 @@ struct ProfileView: View {
             try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
             
             await MainActor.run {
-                // Save profile
-                userProfile.save()
-                
-                // Update water manager with new profile
-                waterManager.updateUserProfile(userProfile)
-                
-                isSaving = false
-                
-                // Dismiss the view
-                dismiss()
+                // Save profile with error handling
+                do {
+                    try userProfile.save()
+                    
+                    // Update water manager with new profile
+                    waterManager.updateUserProfile(userProfile)
+                    
+                    isSaving = false
+                    
+                    // Dismiss the view
+                    dismiss()
+                } catch {
+                    isSaving = false
+                    validationMessage = "Failed to save profile. Please try again."
+                    showingValidationAlert = true
+                }
             }
         }
     }

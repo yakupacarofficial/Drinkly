@@ -34,7 +34,7 @@ struct HeaderView: View {
     
     private var locationSection: some View {
         Group {
-            if !waterManager.userCity.isEmpty {
+            if !locationManager.city.isEmpty {
                 locationDisplay
             } else {
                 locationButton
@@ -48,7 +48,7 @@ struct HeaderView: View {
                 .foregroundColor(.blue)
                 .accessibilityHidden(true)
             
-            Text(waterManager.userCity)
+            Text(locationManager.city)
                 .font(.caption)
                 .foregroundColor(.secondary)
                 .accessibilityLabel("Current location")

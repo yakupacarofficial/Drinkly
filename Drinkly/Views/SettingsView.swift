@@ -86,7 +86,8 @@ struct SettingsView: View {
                         .font(.title2)
                     
                     VStack(alignment: .leading, spacing: 2) {
-                        if let profile = waterManager.userProfile {
+                        if waterManager.userProfile.isValid {
+                            let profile = waterManager.userProfile
                             Text("\(profile.age) years, \(String(format: "%.0f", profile.weight))kg")
                                 .font(.subheadline)
                                 .fontWeight(.medium)
@@ -108,7 +109,7 @@ struct SettingsView: View {
                     .foregroundColor(.blue)
                 }
                 
-                if waterManager.userProfile != nil {
+                if waterManager.userProfile.isValid {
                     Text("Personalized goal calculation enabled")
                         .font(.caption)
                         .foregroundColor(.green)
@@ -137,11 +138,11 @@ struct SettingsView: View {
                 
                 Slider(value: Binding(
                     get: { waterManager.dailyGoal },
-                    set: { newValue in waterManager.setDailyGoal(newValue) }
+                    set: { newValue in waterManager.dailyGoal = newValue }
                 ), in: 1.0...5.0, step: 0.1)
                 .accentColor(.blue)
-                .disabled(waterManager.userProfile != nil)
-                .opacity(waterManager.userProfile != nil ? 0.5 : 1.0)
+                .disabled(waterManager.userProfile.isValid)
+                .opacity(waterManager.userProfile.isValid ? 0.5 : 1.0)
                 
                 HStack {
                     Text("1.0L")
@@ -152,7 +153,7 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                if waterManager.userProfile != nil {
+                if waterManager.userProfile.isValid {
                     Text("Personalized goal is active. Adjust your profile to change your goal.")
                         .font(.caption)
                         .foregroundColor(.green)

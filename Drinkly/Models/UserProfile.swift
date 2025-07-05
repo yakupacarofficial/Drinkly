@@ -42,7 +42,30 @@ struct UserProfile: Codable, Equatable {
     
     // MARK: - Validation
     var isValid: Bool {
-        (10...100).contains(age) && (30...200).contains(weight)
+        let ageValid = (10...100).contains(age)
+        let weightValid = (30...200).contains(weight)
+        return ageValid && weightValid
+    }
+    
+    /// Validate specific fields and return error messages
+    func validate() -> [String] {
+        var errors: [String] = []
+        
+        if age < 10 || age > 100 {
+            errors.append("Age must be between 10 and 100 years")
+        }
+        
+        if weight < 30 || weight > 200 {
+            errors.append("Weight must be between 30 and 200 kg")
+        }
+        
+        return errors
+    }
+    
+    /// Sanitize profile data to ensure valid values
+    mutating func sanitize() {
+        age = max(10, min(100, age))
+        weight = max(30, min(200, weight))
     }
     
     // MARK: - Default Profile
@@ -54,16 +77,29 @@ extension UserProfile {
     private static let userDefaultsKey = "drinkly_user_profile"
     
     static func load() -> UserProfile {
-        if let data = UserDefaults.standard.data(forKey: userDefaultsKey),
-           let profile = try? JSONDecoder().decode(UserProfile.self, from: data) {
-            return profile
+        do {
+            if let data = UserDefaults.standard.data(forKey: userDefaultsKey) {
+                let profile = try JSONDecoder().decode(UserProfile.self, from: data)
+                
+                // Validate and sanitize loaded profile
+                var sanitizedProfile = profile
+                sanitizedProfile.sanitize()
+                
+                return sanitizedProfile
+            }
+        } catch {
+            print("[UserProfile] Error loading profile: \(error)")
         }
         return .default
     }
     
-    func save() {
-        if let data = try? JSONEncoder().encode(self) {
+    func save() throws {
+        do {
+            let data = try JSONEncoder().encode(self)
             UserDefaults.standard.set(data, forKey: UserProfile.userDefaultsKey)
+        } catch {
+            print("[UserProfile] Error saving profile: \(error)")
+            throw error
         }
     }
 } 

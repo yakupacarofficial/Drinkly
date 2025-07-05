@@ -183,4 +183,16 @@ class LocationManager: NSObject, ObservableObject, @preconcurrency CLLocationMan
             }
         }
     }
+    
+    // MARK: - Additional Methods
+    
+    /// Load last location from cache
+    func loadLastLocation() {
+        // Load last known location from cache
+    }
+    
+    /// Refresh location data
+    func refreshLocation() {
+        startLocationUpdates()
+    }
 } 

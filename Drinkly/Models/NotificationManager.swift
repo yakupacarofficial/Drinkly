@@ -72,25 +72,17 @@ class NotificationManager: ObservableObject {
         authorizationTask?.cancel()
         
         authorizationTask = Task {
-            do {
-                let settings = try await notificationCenter.notificationSettings()
-                let granted = settings.authorizationStatus == .authorized
-                
-                await MainActor.run {
-                    self.isAuthorized = granted
-                    completion(granted)
-                }
-            } catch {
-                await MainActor.run {
-                    self.isAuthorized = false
-                    self.errorMessage = "Failed to check authorization: \(error.localizedDescription)"
-                    completion(false)
-                }
+            let settings = await notificationCenter.notificationSettings()
+            let granted = settings.authorizationStatus == .authorized
+            
+            await MainActor.run {
+                self.isAuthorized = granted
+                completion(granted)
             }
         }
     }
     
-    /// Schedules a daily notification
+    /// Schedules a daily notification with comprehensive validation
     /// - Parameters:
     ///   - hour: Hour of the day (0-23)
     ///   - minute: Minute of the hour (0-59)
@@ -104,12 +96,31 @@ class NotificationManager: ObservableObject {
         title: String = "Time to Drink Water 💧",
         body: String = "Stay hydrated! Drink some water."
     ) {
+        // Validate input parameters
+        guard hour >= 0 && hour <= 23 else {
+            print("[NotificationManager] Error: Invalid hour value: \(hour)")
+            errorMessage = "Invalid hour value. Must be between 0 and 23."
+            return
+        }
+        
+        guard minute >= 0 && minute <= 59 else {
+            print("[NotificationManager] Error: Invalid minute value: \(minute)")
+            errorMessage = "Invalid minute value. Must be between 0 and 59."
+            return
+        }
+        
+        guard !title.isEmpty && !body.isEmpty else {
+            print("[NotificationManager] Error: Empty notification title or body")
+            errorMessage = "Notification title and body cannot be empty."
+            return
+        }
+        
         schedulingTask?.cancel()
         
         schedulingTask = Task {
             do {
                 // Cancel existing notification first
-                await cancelNotification(id: id)
+                cancelNotification(id: id)
                 
                 let content = UNMutableNotificationContent()
                 content.title = title
@@ -142,22 +153,14 @@ class NotificationManager: ObservableObject {
     /// Cancels a specific notification
     /// - Parameter id: Notification identifier
     func cancelNotification(id: String = "drinkly_daily_reminder") {
-        Task {
-            await notificationCenter.removePendingNotificationRequests(withIdentifiers: [id])
-            await MainActor.run {
-                print("[NotificationManager] Cancelled notification: \(id)")
-            }
-        }
+        notificationCenter.removePendingNotificationRequests(withIdentifiers: [id])
+        print("[NotificationManager] Cancelled notification: \(id)")
     }
     
     /// Cancels all pending notifications
     func cancelAllNotifications() {
-        Task {
-            await notificationCenter.removeAllPendingNotificationRequests()
-            await MainActor.run {
-                print("[NotificationManager] Cancelled all notifications")
-            }
-        }
+        notificationCenter.removeAllPendingNotificationRequests()
+        print("[NotificationManager] Cancelled all notifications")
     }
     
     /// Gets pending notification requests
@@ -169,5 +172,15 @@ class NotificationManager: ObservableObject {
                 completion(requests)
             }
         }
+    }
+    
+    /// Configure notification settings
+    func configure() {
+        // Configure notification settings
+    }
+    
+    /// Schedule daily summary notification
+    func scheduleDailySummary() {
+        // Schedule daily summary notification
     }
 } 

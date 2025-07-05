@@ -17,9 +17,13 @@ struct DrinkOptionsView: View {
     // MARK: - State Properties
     @State private var customAmount: Double = 0.5
     @State private var showingCustomAmount = false
+    @State private var showingValidationAlert = false
+    @State private var validationMessage = ""
     
     // MARK: - Constants
     private let quickAmounts: [Double] = [0.2, 0.3, 0.5, 0.75, 1.0]
+    private let minAmount: Double = 0.1
+    private let maxAmount: Double = 5.0
     
     var body: some View {
         NavigationView {
@@ -38,6 +42,11 @@ struct DrinkOptionsView: View {
                         dismiss()
                     }
                 }
+            }
+            .alert("Invalid Amount", isPresented: $showingValidationAlert) {
+                Button("OK") { }
+            } message: {
+                Text(validationMessage)
             }
         }
     }
@@ -95,7 +104,7 @@ struct DrinkOptionsView: View {
                         .foregroundColor(.secondary)
                 }
                 
-                Slider(value: $customAmount, in: 0.1...2.0, step: 0.1)
+                Slider(value: $customAmount, in: minAmount...maxAmount, step: 0.1)
                     .accentColor(.blue)
                 
                 Button(action: {
@@ -118,7 +127,12 @@ struct DrinkOptionsView: View {
     // MARK: - Private Methods
     
     private func addWater(amount: Double) {
-        waterManager.addWater(amount: amount)
+        if amount < minAmount || amount > maxAmount {
+            validationMessage = "Please enter an amount between \(String(format: "%.1f", minAmount))L and \(String(format: "%.1f", maxAmount))L."
+            showingValidationAlert = true
+            return
+        }
+        waterManager.addWater(amount)
         dismiss()
     }
 }

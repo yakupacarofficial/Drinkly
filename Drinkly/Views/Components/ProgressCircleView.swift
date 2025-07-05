@@ -12,6 +12,7 @@ struct ProgressCircleView: View {
     
     // MARK: - Environment Objects
     @EnvironmentObject private var waterManager: WaterManager
+    @EnvironmentObject private var locationManager: LocationManager
     
     // MARK: - Private Properties
     @State private var cachedProgressPercentage: Double = 0.0
@@ -101,14 +102,14 @@ struct ProgressCircleView: View {
                 .font(.caption)
                 .foregroundColor(.secondary)
             
-            if !waterManager.userCity.isEmpty {
+            if !locationManager.city.isEmpty {
                 locationInfo
             }
         }
     }
     
     private var locationInfo: some View {
-        Text("Your location: \(waterManager.userCity). Your water goal: \(String(format: "%.2f", cachedDailyGoal))L 💧")
+        Text("Your location: \(locationManager.city). Your water goal: \(String(format: "%.2f", cachedDailyGoal))L 💧")
             .font(.caption)
             .foregroundColor(.blue)
             .multilineTextAlignment(.center)
