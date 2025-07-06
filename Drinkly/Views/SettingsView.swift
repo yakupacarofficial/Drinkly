@@ -131,10 +131,14 @@ struct SettingsView: View {
                     .foregroundColor(.blue)
                 }
                 
-                if waterManager.userProfile.isValid {
+                if waterManager.userProfile.isValid && waterManager.personalizedGoalEnabled {
                     Text("Personalized goal calculation enabled")
                         .font(.caption)
                         .foregroundColor(.green)
+                } else if waterManager.userProfile.isValid && !waterManager.personalizedGoalEnabled {
+                    Text("Personalized goal calculation disabled")
+                        .font(.caption)
+                        .foregroundColor(.orange)
                 } else {
                     Text("Set up your profile for personalized goals")
                         .font(.caption)
