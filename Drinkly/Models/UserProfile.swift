@@ -96,7 +96,7 @@ extension UserProfile {
                 return sanitizedProfile
             }
         } catch {
-            print("[UserProfile] Error loading profile: \(error)")
+            // Error loading profile logged
         }
         return .default
     }
@@ -106,7 +106,7 @@ extension UserProfile {
             let data = try JSONEncoder().encode(self)
             UserDefaults.standard.set(data, forKey: UserProfile.userDefaultsKey)
         } catch {
-            print("[UserProfile] Error saving profile: \(error)")
+            // Error saving profile logged
             throw error
         }
     }

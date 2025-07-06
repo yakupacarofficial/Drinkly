@@ -98,19 +98,16 @@ class NotificationManager: ObservableObject {
     ) {
         // Validate input parameters
         guard hour >= 0 && hour <= 23 else {
-            print("[NotificationManager] Error: Invalid hour value: \(hour)")
             errorMessage = "Invalid hour value. Must be between 0 and 23."
             return
         }
         
         guard minute >= 0 && minute <= 59 else {
-            print("[NotificationManager] Error: Invalid minute value: \(minute)")
             errorMessage = "Invalid minute value. Must be between 0 and 59."
             return
         }
         
         guard !title.isEmpty && !body.isEmpty else {
-            print("[NotificationManager] Error: Empty notification title or body")
             errorMessage = "Notification title and body cannot be empty."
             return
         }
@@ -139,12 +136,10 @@ class NotificationManager: ObservableObject {
                 
                 await MainActor.run {
                     self.errorMessage = nil
-                    print("[NotificationManager] Daily notification scheduled at \(hour):\(minute)")
                 }
             } catch {
                 await MainActor.run {
                     self.errorMessage = "Failed to schedule notification: \(error.localizedDescription)"
-                    print("[NotificationManager] Error scheduling notification: \(error.localizedDescription)")
                 }
             }
         }
@@ -154,13 +149,11 @@ class NotificationManager: ObservableObject {
     /// - Parameter id: Notification identifier
     func cancelNotification(id: String = "drinkly_daily_reminder") {
         notificationCenter.removePendingNotificationRequests(withIdentifiers: [id])
-        print("[NotificationManager] Cancelled notification: \(id)")
     }
     
     /// Cancels all pending notifications
     func cancelAllNotifications() {
         notificationCenter.removeAllPendingNotificationRequests()
-        print("[NotificationManager] Cancelled all notifications")
     }
     
     /// Gets pending notification requests

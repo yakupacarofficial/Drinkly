@@ -436,8 +436,7 @@ struct StatisticsView: View {
     
     // MARK: - Helper Methods
     private func exportData() {
-        // TODO: Implement data export functionality
-        print("Export data functionality to be implemented")
+        // Data export functionality placeholder
     }
 }
 

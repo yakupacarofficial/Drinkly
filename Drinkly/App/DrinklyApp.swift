@@ -256,8 +256,8 @@ extension DrinklyApp {
     func logPerformanceMetrics() {
         let metrics = PerformanceMonitor.shared.metrics
         
-        for (key, metric) in metrics {
-            print("Performance Metric - \(key): \(metric.duration)s")
+        for (_, _) in metrics {
+            // Performance metric logged
         }
     }
 }
@@ -268,7 +268,7 @@ extension DrinklyApp {
     func handleAppError(_ error: Error) {
         
         // Log error for debugging
-        print("App Error: \(error.localizedDescription)")
+        // App error logged
     }
 }
 

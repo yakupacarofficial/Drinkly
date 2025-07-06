@@ -63,10 +63,6 @@ class PerformanceMonitor: ObservableObject {
         }
         
         startTimes.removeValue(forKey: name)
-        
-        #if DEBUG
-        print("[PerformanceMonitor] \(name): \(String(format: "%.3f", duration))s")
-        #endif
     }
     
     /// Measures performance of a closure

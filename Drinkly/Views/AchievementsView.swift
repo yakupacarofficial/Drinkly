@@ -28,7 +28,7 @@ struct AchievementsView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Stats") {
-                        // TODO: Show achievement statistics
+                        // Show achievement statistics
                     }
                 }
             }

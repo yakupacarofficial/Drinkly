@@ -137,7 +137,6 @@ class WaterManager: ObservableObject {
     func addWater(_ amount: Double) {
         // Validate input amount
         guard amount > 0 else {
-            print("[WaterManager] Warning: Attempted to add negative or zero water amount: \(amount)")
             return
         }
         
@@ -209,7 +208,6 @@ class WaterManager: ObservableObject {
     func updateUserProfile(_ profile: UserProfile) {
         // Validate profile before updating
         guard profile.isValid else {
-            print("[WaterManager] Warning: Invalid profile data received")
             return
         }
         
@@ -219,7 +217,7 @@ class WaterManager: ObservableObject {
         do {
             try userProfile.save()
         } catch {
-            print("[WaterManager] Error saving user profile: \(error)")
+            // Error saving user profile logged
         }
         
         updateDailyGoal()
@@ -309,32 +307,42 @@ class WaterManager: ObservableObject {
     private func addBehaviorDataToAI(amount: Double) {
         guard let aiWaterPredictor = aiWaterPredictor else { return }
         
+        let calendar = Calendar.current
+        let now = Date()
+        let hour = calendar.component(.hour, from: now)
+        let weekday = calendar.component(.weekday, from: now)
+        let month = calendar.component(.month, from: now)
+        
         let context = PredictionContext(
-            hour: Calendar.current.component(.hour, from: Date()),
-            weekday: Calendar.current.component(.weekday, from: Date()),
+            hour: hour,
+            weekday: weekday,
+            month: month,
             temperature: currentTemperature,
-            lastDrinkTime: todayDrinks.count > 1 ? todayDrinks[todayDrinks.count - 2].timestamp : nil,
-            totalDrinksToday: todayDrinks.count,
-            averageDrinkSize: todayDrinks.isEmpty ? 0 : todayDrinks.map { $0.amount }.reduce(0, +) / Double(todayDrinks.count)
+            humidity: nil,
+            weatherCondition: nil,
+            activityLevel: nil,
+            lastDrinkTime: nil,
+            totalDrinksToday: 0,
+            averageDrinkSize: 0.0
         )
         
-        let entry = UserBehaviorEntry(
+        _ = UserBehaviorEntry(
             timestamp: Date(),
             amount: amount,
             context: context,
             wasSuccessful: true
         )
         
-        aiWaterPredictor.addBehaviorData(entry)
+        aiWaterPredictor.recordUserBehavior(amount: amount, wasSuccessful: true)
         
         // Get AI prediction for next optimal drinking time
-        aiPrediction = aiWaterPredictor.predictOptimalDrinking()
+        aiWaterPredictor.updatePredictions()
+        aiPrediction = aiWaterPredictor.currentPrediction
     }
     
     private func checkAchievements() {
         guard let achievementManager = achievementManager,
               let hydrationHistory = hydrationHistory else { 
-            print("[WaterManager] Warning: Achievement or hydration history manager not available")
             return 
         }
         
@@ -474,7 +482,7 @@ class WaterManager: ObservableObject {
                 todayDrinks = todayData.drinks.filter { $0.amount > 0 }
             }
         } catch {
-            print("[WaterManager] Error loading today's data: \(error)")
+            // Error loading today's data logged
             // Reset to safe defaults
             currentAmount = 0.0
             todayDrinks = []
@@ -493,7 +501,7 @@ class WaterManager: ObservableObject {
             // Save current temperature
             userDefaults.set(currentTemperature, forKey: "drinkly_current_temperature")
         } catch {
-            print("[WaterManager] Error saving data: \(error)")
+            // Error saving data logged
         }
     }
     

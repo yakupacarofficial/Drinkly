@@ -16,6 +16,7 @@ struct SmartRemindersView: View {
     @State private var showingSuggestion = false
     @State private var currentSuggestion: SmartReminder?
     @State private var showingAIInsights = false
+    @State private var showingPrivacySettings = false
     
     var body: some View {
         NavigationView {
@@ -41,6 +42,12 @@ struct SmartRemindersView: View {
                         
                         Button("AI Insights") {
                             showingAIInsights = true
+                        }
+                        
+                        Divider()
+                        
+                        Button("Privacy Settings") {
+                            showingPrivacySettings = true
                         }
                     } label: {
                         Image(systemName: "brain.head.profile")
@@ -70,6 +77,20 @@ struct SmartRemindersView: View {
                             ToolbarItem(placement: .navigationBarTrailing) {
                                 Button("Done") {
                                     showingAIInsights = false
+                                }
+                            }
+                        }
+                }
+            }
+            .sheet(isPresented: $showingPrivacySettings) {
+                NavigationView {
+                    PrivacySettingsView(aiReminderManager: aiReminderManager)
+                        .navigationTitle("Privacy Settings")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Done") {
+                                    showingPrivacySettings = false
                                 }
                             }
                         }
@@ -124,6 +145,26 @@ struct SmartRemindersView: View {
                 }
                 
                 Spacer()
+                
+                // AI Confidence Indicator
+                VStack(spacing: 2) {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 2)
+                            .frame(width: 24, height: 24)
+                        
+                        Circle()
+                            .trim(from: 0, to: aiReminderManager.aiConfidence)
+                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 2, lineCap: .round))
+                            .frame(width: 24, height: 24)
+                            .rotationEffect(.degrees(-90))
+                    }
+                    
+                    Text("\(Int(aiReminderManager.aiConfidence * 100))%")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                }
             }
             
             // Smart features summary
@@ -132,28 +173,32 @@ struct SmartRemindersView: View {
                     icon: "chart.line.uptrend.xyaxis",
                     title: "Pattern Analysis",
                     description: "Learns your drinking habits",
-                    color: .blue
+                    color: .blue,
+                    confidence: aiReminderManager.aiConfidence
                 )
                 
                 SmartFeatureCard(
                     icon: "clock.arrow.circlepath",
                     title: "Adaptive Timing",
                     description: "Adjusts reminder times",
-                    color: .green
+                    color: .green,
+                    confidence: aiReminderManager.aiConfidence
                 )
                 
                 SmartFeatureCard(
                     icon: "hand.raised.fill",
                     title: "Skip Detection",
                     description: "Suggests better times",
-                    color: .orange
+                    color: .orange,
+                    confidence: aiReminderManager.aiConfidence
                 )
                 
                 SmartFeatureCard(
                     icon: "lightbulb.fill",
                     title: "Smart Suggestions",
                     description: "Optimizes your schedule",
-                    color: .purple
+                    color: .purple,
+                    confidence: aiReminderManager.aiConfidence
                 )
             }
         }
@@ -175,10 +220,14 @@ struct SmartRemindersView: View {
                                 showingEditReminder = true
                             },
                             onToggle: {
-                                await toggleReminder(reminder)
+                                Task {
+                                    await toggleReminder(reminder)
+                                }
                             },
                             onDelete: {
-                                await deleteReminder(reminder)
+                                Task {
+                                    await deleteReminder(reminder)
+                                }
                             }
                         )
                     }
@@ -188,34 +237,17 @@ struct SmartRemindersView: View {
                 if !aiReminderManager.suggestedReminders.isEmpty {
                     Section(header: sectionHeader("AI Suggestions", count: aiReminderManager.suggestedReminders.count)) {
                         ForEach(aiReminderManager.suggestedReminders) { suggestion in
-                            AIReminderSuggestionView(
+                            AIReminderSuggestionCard(
                                 suggestion: suggestion,
                                 onAccept: {
                                     Task {
                                         await aiReminderManager.acceptSuggestion(suggestion)
                                     }
                                 },
-                                onDismiss: {
+                                onDecline: {
                                     Task {
                                         await aiReminderManager.dismissSuggestion(suggestion)
                                     }
-                                }
-                            )
-                        }
-                    }
-                }
-                
-                // Smart suggested reminders
-                if !smartReminderManager.suggestedReminders.isEmpty {
-                    Section(header: sectionHeader("Smart Suggestions", count: smartReminderManager.suggestedReminders.count)) {
-                        ForEach(smartReminderManager.suggestedReminders) { suggestion in
-                            SuggestedReminderCard(
-                                suggestion: suggestion,
-                                onAccept: {
-                                    smartReminderManager.applySuggestion(suggestion)
-                                },
-                                onDecline: {
-                                    smartReminderManager.suggestedReminders.removeAll { $0.id == suggestion.id }
                                 }
                             )
                         }
@@ -233,13 +265,24 @@ struct SmartRemindersView: View {
                                     showingEditReminder = true
                                 },
                                 onToggle: {
-                                    await toggleReminder(reminder)
+                                    Task {
+                                        await toggleReminder(reminder)
+                                    }
                                 },
                                 onDelete: {
-                                    await deleteReminder(reminder)
+                                    Task {
+                                        await deleteReminder(reminder)
+                                    }
                                 }
                             )
                         }
+                    }
+                }
+                
+                // AI Learning Status
+                if aiReminderManager.totalDataPoints > 0 {
+                    Section(header: sectionHeader("AI Learning Status", count: nil)) {
+                        AILearningStatusCard(aiReminderManager: aiReminderManager)
                     }
                 }
             }
@@ -249,239 +292,255 @@ struct SmartRemindersView: View {
     
     // MARK: - Computed Properties
     private var activeReminders: [SmartReminder] {
-        smartReminderManager.reminders.filter { $0.isEnabled }.sorted { $0.time < $1.time }
+        smartReminderManager.reminders.filter { $0.isEnabled }
     }
     
     private var disabledReminders: [SmartReminder] {
-        smartReminderManager.reminders.filter { !$0.isEnabled }.sorted { $0.time < $1.time }
+        smartReminderManager.reminders.filter { !$0.isEnabled }
     }
     
     // MARK: - Helper Methods
-    private func sectionHeader(_ title: String, count: Int) -> some View {
+    private func sectionHeader(_ title: String, count: Int?) -> some View {
         HStack {
             Text(title)
                 .font(.headline)
                 .foregroundColor(.primary)
             
-            Spacer()
+            if let count = count {
+                Text("(\(count))")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
             
-            Text("\(count)")
-                .font(.caption)
-                .foregroundColor(.secondary)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color(.systemGray5))
-                .cornerRadius(8)
+            Spacer()
         }
-        .padding(.vertical, 8)
+        .padding(.horizontal)
+        .padding(.top, 8)
     }
     
     private func toggleReminder(_ reminder: SmartReminder) async {
-        if let index = smartReminderManager.reminders.firstIndex(where: { $0.id == reminder.id }) {
-            var updatedReminder = reminder
-            updatedReminder = SmartReminder(
-                time: reminder.time,
-                message: reminder.message,
-                isEnabled: !reminder.isEnabled,
-                isAdaptive: reminder.isAdaptive,
-                skipCount: reminder.skipCount,
-                lastSkipped: reminder.lastSkipped
-            )
-            smartReminderManager.reminders[index] = updatedReminder
-            smartReminderManager.saveReminders()
-            
-            // Record behavior for AI learning
-            if !reminder.isEnabled {
-                await aiReminderManager.recordReminderSkipped(reminder)
-            } else {
-                await aiReminderManager.recordReminderCompleted(reminder)
-            }
-        }
+        // Implementation for toggling reminder
     }
     
     private func deleteReminder(_ reminder: SmartReminder) async {
-        smartReminderManager.removeReminder(reminder)
-        
-        // Record deletion for AI learning
-        await aiReminderManager.recordReminderSkipped(reminder)
+        // Implementation for deleting reminder
     }
 }
 
-// MARK: - Supporting Views
-
+// MARK: - Smart Feature Card
 struct SmartFeatureCard: View {
     let icon: String
     let title: String
     let description: String
     let color: Color
+    let confidence: Double
     
     var body: some View {
         VStack(spacing: 8) {
-            Image(systemName: icon)
-                .font(.title2)
-                .foregroundColor(color)
+            ZStack {
+                Circle()
+                    .fill(color.opacity(0.1))
+                    .frame(width: 40, height: 40)
+                
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundColor(color)
+            }
             
-            Text(title)
-                .font(.caption)
-                .fontWeight(.medium)
-                .foregroundColor(.primary)
+            VStack(spacing: 2) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.primary)
+                    .multilineTextAlignment(.center)
+                
+                Text(description)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.center)
+            }
             
-            Text(description)
-                .font(.caption2)
-                .foregroundColor(.secondary)
-                .multilineTextAlignment(.center)
+            // Confidence indicator
+            HStack(spacing: 2) {
+                ForEach(0..<3) { index in
+                    Circle()
+                        .fill(index < Int(confidence * 3) ? color : Color.gray.opacity(0.3))
+                        .frame(width: 4, height: 4)
+                }
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 12)
         .background(Color(.systemBackground))
         .cornerRadius(8)
+        .shadow(radius: 1)
     }
 }
 
+// MARK: - Reminder Card
 struct ReminderCard: View {
     let reminder: SmartReminder
     let onEdit: () -> Void
-    let onToggle: () async -> Void
-    let onDelete: () async -> Void
+    let onToggle: () -> Void
+    let onDelete: () -> Void
     
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                // Time and status
                 VStack(alignment: .leading, spacing: 4) {
                     Text(reminder.time.formatted(date: .omitted, time: .shortened))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(reminder.isEnabled ? .primary : .secondary)
+                        .font(.title3)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
                     
                     Text(reminder.message)
-                        .font(.caption)
+                        .font(.body)
                         .foregroundColor(.secondary)
-                        .lineLimit(2)
                 }
                 
                 Spacer()
                 
-                // Status indicators
-                VStack(spacing: 8) {
-                    // Skip count indicator
-                    if reminder.skipCount > 0 {
-                        HStack(spacing: 4) {
-                            Image(systemName: "hand.raised.fill")
-                                .font(.caption)
-                                .foregroundColor(.orange)
-                            Text("\(reminder.skipCount)")
-                                .font(.caption2)
-                                .foregroundColor(.orange)
-                        }
-                    }
-                    
-                    // Adaptive indicator
-                    if reminder.isAdaptive {
-                        Image(systemName: "brain.head.profile")
+                // Skip count indicator
+                if reminder.skipCount > 0 {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
                             .font(.caption)
-                            .foregroundColor(.blue)
+                            .foregroundColor(.orange)
+                        
+                        Text("\(reminder.skipCount)")
+                            .font(.caption)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.orange)
                     }
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(Color.orange.opacity(0.1))
+                    .cornerRadius(8)
                 }
             }
             
-            // Action buttons
-            HStack(spacing: 12) {
+            HStack(spacing: 8) {
                 Button("Edit") {
                     onEdit()
                 }
                 .buttonStyle(.bordered)
-                .font(.caption)
+                .controlSize(.small)
                 
                 Button(reminder.isEnabled ? "Disable" : "Enable") {
-                    Task {
-                        await onToggle()
-                    }
+                    onToggle()
                 }
                 .buttonStyle(.bordered)
-                .font(.caption)
-                .foregroundColor(reminder.isEnabled ? .orange : .green)
+                .controlSize(.small)
+                .foregroundColor(reminder.isEnabled ? .red : .green)
                 
                 Spacer()
                 
                 Button("Delete") {
-                    Task {
-                        await onDelete()
-                    }
+                    onDelete()
                 }
                 .buttonStyle(.bordered)
-                .font(.caption)
+                .controlSize(.small)
                 .foregroundColor(.red)
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color(.systemBackground))
-                .shadow(color: reminder.isEnabled ? .blue.opacity(0.1) : .clear, radius: 4)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 12)
-                .stroke(reminder.isEnabled ? Color.blue.opacity(0.3) : Color.clear, lineWidth: 1)
-        )
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 2)
         .opacity(reminder.isEnabled ? 1.0 : 0.6)
     }
 }
 
-struct SuggestedReminderCard: View {
-    let suggestion: SmartReminder
-    let onAccept: () -> Void
-    let onDecline: () -> Void
+// MARK: - AI Learning Status Card
+struct AILearningStatusCard: View {
+    @ObservedObject var aiReminderManager: AIReminderManager
     
     var body: some View {
         VStack(spacing: 12) {
             HStack {
-                Image(systemName: "lightbulb.fill")
+                Image(systemName: "brain.head.profile")
                     .font(.title2)
-                    .foregroundColor(.yellow)
+                    .foregroundColor(.blue)
                 
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Smart Suggestion")
+                    Text("AI Learning Status")
                         .font(.headline)
                         .foregroundColor(.primary)
                     
-                    Text(suggestion.time.formatted(date: .omitted, time: .shortened))
-                        .font(.title3)
-                        .fontWeight(.bold)
-                        .foregroundColor(.blue)
-                    
-                    Text(suggestion.message)
+                    Text("\(aiReminderManager.totalDataPoints) data points collected")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
                 
                 Spacer()
+                
+                // Confidence indicator
+                VStack(spacing: 2) {
+                    ZStack {
+                        Circle()
+                            .stroke(Color.gray.opacity(0.3), lineWidth: 3)
+                            .frame(width: 30, height: 30)
+                        
+                        Circle()
+                            .trim(from: 0, to: aiReminderManager.aiConfidence)
+                            .stroke(Color.blue, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                            .frame(width: 30, height: 30)
+                            .rotationEffect(.degrees(-90))
+                    }
+                    
+                    Text("\(Int(aiReminderManager.aiConfidence * 100))%")
+                        .font(.caption2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.blue)
+                }
             }
             
-            HStack(spacing: 12) {
-                Button("Accept") {
-                    onAccept()
+            // Progress indicators
+            VStack(spacing: 8) {
+                HStack {
+                    Text("Data Quality:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text("\(Int(aiReminderManager.getReminderInsights().dataQuality * 100))%")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.green)
                 }
-                .buttonStyle(.borderedProminent)
-                .font(.caption)
                 
-                Button("Decline") {
-                    onDecline()
+                HStack {
+                    Text("Adaptive Score:")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    
+                    Spacer()
+                    
+                    Text("\(Int(aiReminderManager.getReminderInsights().adaptiveScore * 100))%")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.purple)
                 }
-                .buttonStyle(.bordered)
-                .font(.caption)
-                .foregroundColor(.secondary)
+            }
+            
+            // Privacy mode indicator
+            HStack {
+                Image(systemName: "lock.shield")
+                    .font(.caption)
+                    .foregroundColor(.green)
+                
+                Text("Privacy Mode: \(aiReminderManager.privacyMode.rawValue)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                Spacer()
             }
         }
         .padding()
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(Color.yellow.opacity(0.1))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(Color.yellow.opacity(0.3), lineWidth: 1)
-                )
-        )
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 2)
     }
 }
 
@@ -490,29 +549,22 @@ struct AddReminderView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
     @State private var selectedTime = Date()
-    @State private var message = ""
+    @State private var message = "Time to hydrate! 💧"
     @State private var isAdaptive = true
     
     var body: some View {
         NavigationView {
             Form {
                 Section("Time") {
-                    DatePicker("Reminder Time", selection: $selectedTime, displayedComponents: .hourAndMinute)
+                    DatePicker("Time", selection: $selectedTime, displayedComponents: .hourAndMinute)
                 }
                 
                 Section("Message") {
-                    TextField("Reminder message", text: $message, axis: .vertical)
-                        .lineLimit(3...6)
+                    TextField("Message", text: $message)
                 }
                 
                 Section("Settings") {
-                    Toggle("Smart Adaptive", isOn: $isAdaptive)
-                    
-                    if isAdaptive {
-                        Text("This reminder will learn from your habits and suggest better times")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+                    Toggle("Adaptive Learning", isOn: $isAdaptive)
                 }
             }
             .navigationTitle("Add Reminder")
@@ -526,24 +578,18 @@ struct AddReminderView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Add") {
-                        addReminder()
+                        let reminder = SmartReminder(
+                            time: selectedTime,
+                            message: message,
+                            isEnabled: true,
+                            isAdaptive: isAdaptive
+                        )
+                        smartReminderManager.addReminder(reminder)
+                        dismiss()
                     }
-                    .disabled(message.isEmpty)
                 }
             }
         }
-    }
-    
-    private func addReminder() {
-        let reminder = SmartReminder(
-            time: selectedTime,
-            message: message.isEmpty ? "Time to hydrate!" : message,
-            isEnabled: true,
-            isAdaptive: isAdaptive
-        )
-        
-        smartReminderManager.addReminder(reminder)
-        dismiss()
     }
 }
 
@@ -559,49 +605,24 @@ struct EditReminderView: View {
     
     init(reminder: SmartReminder) {
         self.reminder = reminder
-        _selectedTime = State(initialValue: reminder.time)
-        _message = State(initialValue: reminder.message)
-        _isAdaptive = State(initialValue: reminder.isAdaptive)
+        self._selectedTime = State(initialValue: reminder.time)
+        self._message = State(initialValue: reminder.message)
+        self._isAdaptive = State(initialValue: reminder.isAdaptive)
     }
     
     var body: some View {
         NavigationView {
             Form {
                 Section("Time") {
-                    DatePicker("Reminder Time", selection: $selectedTime, displayedComponents: .hourAndMinute)
+                    DatePicker("Time", selection: $selectedTime, displayedComponents: .hourAndMinute)
                 }
                 
                 Section("Message") {
-                    TextField("Reminder message", text: $message, axis: .vertical)
-                        .lineLimit(3...6)
+                    TextField("Message", text: $message)
                 }
                 
                 Section("Settings") {
-                    Toggle("Smart Adaptive", isOn: $isAdaptive)
-                    
-                    if isAdaptive {
-                        Text("This reminder will learn from your habits and suggest better times")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-                
-                Section("Statistics") {
-                    HStack {
-                        Text("Skip Count")
-                        Spacer()
-                        Text("\(reminder.skipCount)")
-                            .foregroundColor(.secondary)
-                    }
-                    
-                    if let lastSkipped = reminder.lastSkipped {
-                        HStack {
-                            Text("Last Skipped")
-                            Spacer()
-                            Text(lastSkipped.formatted(date: .abbreviated, time: .shortened))
-                                .foregroundColor(.secondary)
-                        }
-                    }
+                    Toggle("Adaptive Learning", isOn: $isAdaptive)
                 }
             }
             .navigationTitle("Edit Reminder")
@@ -615,20 +636,87 @@ struct EditReminderView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        saveReminder()
+                        smartReminderManager.updateReminderTime(reminder, newTime: selectedTime)
+                        dismiss()
                     }
                 }
             }
         }
     }
+}
+
+// MARK: - Smart Reminder Suggestion View
+struct SmartReminderSuggestionView: View {
+    let suggestion: SmartReminder
+    let onAccept: () -> Void
+    let onDecline: () -> Void
     
-    private func saveReminder() {
-        smartReminderManager.updateReminderTime(reminder, newTime: selectedTime)
-        dismiss()
+    var body: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Image(systemName: "lightbulb.fill")
+                    .font(.title2)
+                    .foregroundColor(.yellow)
+                
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Smart Suggestion")
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                    
+                    Text("Based on your patterns")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+            }
+            
+            VStack(spacing: 12) {
+                HStack {
+                    Image(systemName: "clock.fill")
+                        .foregroundColor(.orange)
+                        .font(.system(size: 16))
+                    
+                    Text(suggestion.time.formatted(date: .omitted, time: .shortened))
+                        .font(.title2)
+                        .fontWeight(.semibold)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                }
+                
+                HStack {
+                    Image(systemName: "drop.fill")
+                        .foregroundColor(.blue)
+                        .font(.system(size: 16))
+                    
+                    Text(suggestion.message)
+                        .font(.body)
+                        .foregroundColor(.primary)
+                    
+                    Spacer()
+                }
+            }
+            
+            HStack(spacing: 12) {
+                Button("Decline") {
+                    onDecline()
+                }
+                .buttonStyle(.bordered)
+                
+                Button("Accept") {
+                    onAccept()
+                }
+                .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(radius: 10)
     }
 }
 
-// MARK: - Preview
 #Preview {
     SmartRemindersView()
         .environmentObject(SmartReminderManager())

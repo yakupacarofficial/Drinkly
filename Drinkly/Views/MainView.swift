@@ -410,18 +410,18 @@ struct MainView: View {
                 
                 Spacer()
                 
-                if aiWaterPredictor.isModelReady {
+                if !aiWaterPredictor.isAnalyzing {
                     HStack(spacing: 4) {
                         Image(systemName: "brain.head.profile")
                             .foregroundColor(.blue)
-                        Text("\(Int(aiWaterPredictor.predictionAccuracy * 100))%")
+                        Text("AI Ready")
                             .font(.caption)
                             .foregroundColor(.blue)
                     }
                 }
             }
             
-            if aiWaterPredictor.isModelReady {
+            if !aiWaterPredictor.isAnalyzing {
                 VStack(spacing: 12) {
                     // AI Prediction Card
                     if let prediction = waterManager.aiPrediction {
@@ -429,7 +429,7 @@ struct MainView: View {
                     }
                     
                     // Learning Progress
-                    if aiWaterPredictor.learningProgress > 0 && aiWaterPredictor.learningProgress < 1.0 {
+                    if let insights = aiWaterPredictor.learningInsights {
                         HStack {
                             Image(systemName: "brain.head.profile")
                                 .foregroundColor(.blue)
@@ -437,8 +437,9 @@ struct MainView: View {
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                             Spacer()
-                            ProgressView(value: aiWaterPredictor.learningProgress)
-                                .frame(width: 60)
+                            Text("\(Int(insights.confidenceLevel * 100))%")
+                                .font(.caption)
+                                .foregroundColor(.blue)
                         }
                         .padding()
                         .background(Color(.systemGray6))
@@ -446,8 +447,9 @@ struct MainView: View {
                     }
                     
                     // AI Stats
-                    let insights = aiWaterPredictor.getLearningInsights()
-                    AILearningStatsCard(insights: insights)
+                    if let insights = aiWaterPredictor.learningInsights {
+                        AILearningStatsCard(insights: insights)
+                    }
                 }
             } else {
                 VStack(spacing: 8) {

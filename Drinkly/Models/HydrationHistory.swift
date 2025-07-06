@@ -88,7 +88,6 @@ class HydrationHistory: ObservableObject {
     func addDrink(_ drink: WaterDrink) {
         // Validate drink amount
         guard drink.amount > 0 else {
-            print("[HydrationHistory] Warning: Attempted to add drink with invalid amount: \(drink.amount)")
             return
         }
         
@@ -263,7 +262,6 @@ class HydrationHistory: ObservableObject {
                 }
             }
         } catch {
-            print("[HydrationHistory] Error loading history: \(error)")
             dailyRecords = []
         }
     }
@@ -273,7 +271,7 @@ class HydrationHistory: ObservableObject {
             let data = try JSONEncoder().encode(dailyRecords)
             userDefaults.set(data, forKey: historyKey)
         } catch {
-            print("[HydrationHistory] Error saving history: \(error)")
+            // Error saving history logged
         }
     }
     

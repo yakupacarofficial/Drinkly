@@ -113,7 +113,7 @@ class WeatherManager: ObservableObject {
         }
     }
     
-    /// Manually sets temperature (for testing or user override)
+    /// Manually sets temperature (for user override)
     /// - Parameter temperature: Temperature in Celsius
     func setTemperature(_ temperature: Double) {
         currentTemperature = temperature
@@ -184,7 +184,11 @@ class WeatherManager: ObservableObject {
             URLQueryItem(name: "units", value: "metric"),
             URLQueryItem(name: "lang", value: "en")
         ]
-        return components.url!
+        guard let url = components.url else {
+            // This should never happen with valid base URL and query items
+            return URL(string: "https://api.openweathermap.org/data/2.5/weather")!
+        }
+        return url
     }
     
     private func buildWeatherURL(latitude: Double, longitude: Double) -> URL {
@@ -196,7 +200,11 @@ class WeatherManager: ObservableObject {
             URLQueryItem(name: "units", value: "metric"),
             URLQueryItem(name: "lang", value: "en")
         ]
-        return components.url!
+        guard let url = components.url else {
+            // This should never happen with valid base URL and query items
+            return URL(string: "https://api.openweathermap.org/data/2.5/weather")!
+        }
+        return url
     }
     
     private func handleWeatherResponse(data: Data, response: URLResponse, city: String? = nil) async {

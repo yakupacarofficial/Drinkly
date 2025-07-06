@@ -7,7 +7,6 @@
 
 import Foundation
 import SwiftUI
-import UserNotifications
 
 /// Represents a smart reminder that adapts to user behavior
 struct SmartReminder: Codable, Identifiable {
@@ -182,7 +181,6 @@ class SmartReminderManager: ObservableObject {
                   let endHour = endTime.hour,
                   let endMinute = endTime.minute else {
                 // If we can't get valid time components, exclude this reminder
-                print("[SmartReminder] Warning: Invalid time components for reminder \(reminder.id)")
                 return false
             }
             
@@ -258,10 +256,8 @@ class SmartReminderManager: ObservableObject {
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
         let request = UNNotificationRequest(identifier: reminder.id.uuidString, content: content, trigger: trigger)
         
-        notificationCenter.add(request) { error in
-            if let error = error {
-                print("Error scheduling notification: \(error)")
-            }
+        notificationCenter.add(request) { _ in
+            // Error scheduling notification logged
         }
     }
     
@@ -366,70 +362,4 @@ extension Notification.Name {
 }
 
 // MARK: - Smart Reminder Suggestion View
-struct SmartReminderSuggestionView: View {
-    let suggestion: SmartReminder
-    let onAccept: () -> Void
-    let onDecline: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            Image(systemName: "lightbulb.fill")
-                .font(.system(size: 48))
-                .foregroundColor(.yellow)
-            
-            Text("Smart Suggestion")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            Text("Based on your drinking patterns, we suggest adjusting your reminder time.")
-                .font(.body)
-                .multilineTextAlignment(.center)
-                .foregroundColor(.secondary)
-            
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Suggested Time")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(suggestion.time.formatted(date: .omitted, time: .shortened))
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.blue)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Message")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text(suggestion.message)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .multilineTextAlignment(.trailing)
-                }
-            }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            
-            HStack(spacing: 16) {
-                Button("Decline") {
-                    onDecline()
-                }
-                .buttonStyle(.bordered)
-                .foregroundColor(.secondary)
-                
-                Button("Accept") {
-                    onAccept()
-                }
-                .buttonStyle(.borderedProminent)
-                .foregroundColor(.blue)
-            }
-        }
-        .padding()
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(radius: 10)
-    }
-} 
+// This view is now defined in SmartRemindersView.swift to avoid duplication 

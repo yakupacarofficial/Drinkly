@@ -82,10 +82,10 @@ struct WeatherDisplayView: View {
         .cornerRadius(12)
         .onAppear {
             // Fetch weather data if we have location
-            if locationManager.isAuthorized && locationManager.location != nil {
+            if locationManager.isAuthorized, let location = locationManager.location {
                 weatherManager.fetchWeather(
-                    latitude: locationManager.location!.coordinate.latitude,
-                    longitude: locationManager.location!.coordinate.longitude
+                    latitude: location.coordinate.latitude,
+                    longitude: location.coordinate.longitude
                 )
             } else if !locationManager.city.isEmpty {
                 weatherManager.fetchWeather(for: locationManager.city)
