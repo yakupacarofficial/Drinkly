@@ -19,11 +19,14 @@ struct SettingsView: View {
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
     @EnvironmentObject private var aiReminderManager: AIReminderManager
     @EnvironmentObject private var themeManager: ThemeManager
+    @EnvironmentObject private var profilePictureManager: ProfilePictureManager
+    @EnvironmentObject private var liquidManager: LiquidManager
     @Environment(\.dismiss) private var dismiss
     
     // MARK: - State Properties
     @State private var showingResetAlert = false
     @State private var showingResetAllAlert = false
+    @State private var showingFullResetAlert = false
     @State private var notificationsEnabled: Bool = false
     @State private var reminderTime: Date = Self.loadReminderTime()
     @State private var showNotificationAlert = false
@@ -87,6 +90,14 @@ struct SettingsView: View {
             Button("Cancel", role: .cancel) { }
         } message: {
             Text("Please enable notifications in Settings to receive daily reminders.")
+        }
+        .alert("Tüm Verileri ve Ayarları Sıfırla", isPresented: $showingFullResetAlert) {
+            Button("Tümünü Sıfırla", role: .destructive) {
+                fullResetAllDataAndSettings()
+            }
+            Button("Vazgeç", role: .cancel) { }
+        } message: {
+            Text("Bu işlem tüm kullanıcı verilerini, ayarları, izinleri ve profil bilgilerini sıfırlar. Geri alınamaz. Devam etmek istiyor musunuz?")
         }
         .sheet(isPresented: $showingProfileView, onDismiss: {
             // Ensure UI updates after profile change
@@ -360,6 +371,19 @@ struct SettingsView: View {
                     Spacer()
                 }
             }
+
+            Button(action: {
+                HapticFeedbackHelper.shared.trigger()
+                showingFullResetAlert = true
+            }) {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.red)
+                    Text("Tüm Verileri ve Ayarları Sıfırla")
+                        .foregroundColor(.red)
+                    Spacer()
+                }
+            }
         }
     }
     
@@ -461,6 +485,35 @@ struct SettingsView: View {
         hydrationHistory.saveHistory()
         smartReminderManager.saveReminders()
     }
+
+    /// Tüm kullanıcı verilerini, ayarları ve izinleri sıfırlar
+    private func fullResetAllDataAndSettings() {
+        // Tüm UserDefaults anahtarlarını sil
+        if let appDomain = Bundle.main.bundleIdentifier {
+            UserDefaults.standard.removePersistentDomain(forName: appDomain)
+            UserDefaults.standard.synchronize()
+        }
+
+        // Tüm manager'ları sıfırla
+        waterManager.resetToday()
+        achievementManager.resetAllProgress()
+        hydrationHistory.resetAllData()
+        smartReminderManager.resetAllReminders()
+        liquidManager.resetAllData()
+        profilePictureManager.removeProfileImage()
+        themeManager.setThemeMode(.system)
+        notificationManager.cancelAllNotifications()
+
+        // Bildirim izinlerini sıfırlamak için kullanıcıya tekrar izin isteği gösterilebilir
+        notificationManager.requestAuthorization { _ in }
+
+        // Kullanıcıya bilgi ver
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            // Başarılı sıfırlama mesajı göster
+            self.showingFullResetAlert = false
+            // Burada bir başarı mesajı gösterilebilir
+        }
+    }
 }
 
 // MARK: - Stat Row
@@ -535,4 +588,6 @@ struct ThemeOptionCard: View {
         .environmentObject(HydrationHistory())
         .environmentObject(SmartReminderManager())
         .environmentObject(ThemeManager())
+        .environmentObject(ProfilePictureManager())
+        .environmentObject(LiquidManager())
 } 

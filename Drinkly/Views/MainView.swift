@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import Combine
 
 /// Main view of the Drinkly app
 struct MainView: View {
@@ -23,6 +24,7 @@ struct MainView: View {
     @EnvironmentObject private var aiWaterPredictor: AIWaterPredictor
     @EnvironmentObject private var aiReminderManager: AIReminderManager
     @EnvironmentObject private var themeManager: ThemeManager
+    @StateObject private var liquidManager = LiquidManager() // Yeni eklenen LiquidManager
     
     // MARK: - State Properties
     @State private var selectedTab: Tab = .home
@@ -34,9 +36,17 @@ struct MainView: View {
     @State private var isLoading = false
     @State private var showingError = false
     @State private var errorMessage = ""
+    @State private var progressMode: ProgressMode = .water // Water Only / Total Liquid
     
     enum Tab {
         case home, statistics, achievements, reminders
+    }
+    
+    enum ProgressMode: String, CaseIterable {
+        case water = "Water Only"
+        case total = "Total Liquid"
+        
+        var displayName: String { rawValue }
     }
     
     var body: some View {
@@ -55,6 +65,7 @@ struct MainView: View {
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
                 .environmentObject(themeManager)
+                .environmentObject(liquidManager)
                 .tabItem {
                     Image(systemName: "house.fill")
                     Text("Home")
@@ -75,6 +86,7 @@ struct MainView: View {
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
                 .environmentObject(themeManager)
+                .environmentObject(liquidManager)
                 .tabItem {
                     Image(systemName: "chart.bar.fill")
                     Text("Statistics")
@@ -95,6 +107,7 @@ struct MainView: View {
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
                 .environmentObject(themeManager)
+                .environmentObject(liquidManager)
                 .tabItem {
                     Image(systemName: "trophy.fill")
                     Text("Achievements")
@@ -110,10 +123,12 @@ struct MainView: View {
                 .environmentObject(performanceMonitor)
                 .environmentObject(hydrationHistory)
                 .environmentObject(achievementManager)
+                .environmentObject(smartReminderManager)
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
                 .environmentObject(themeManager)
+                .environmentObject(liquidManager)
                 .tabItem {
                     Image(systemName: "bell.fill")
                     Text("Reminders")
@@ -123,6 +138,22 @@ struct MainView: View {
         .accentColor(.blue)
         .onAppear {
             setupApp()
+        }
+        .onChange(of: waterManager.todayDrinks) { _, _ in
+            // WaterManager'dan su eklenince LiquidManager'ı güncelle
+            let waterDrinks = waterManager.todayDrinks.map { drink in
+                LiquidDrink(
+                    type: .water,
+                    name: "Water",
+                    amount: drink.amount * 1000, // L'den ml'ye çevir
+                    date: drink.timestamp
+                )
+            }
+            
+            // Sadece su içeceklerini güncelle, diğerlerini koru
+            let otherDrinks = liquidManager.drinks.filter { $0.type != .water }
+            liquidManager.drinks = waterDrinks + otherDrinks
+            liquidManager.saveDrinks()
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
@@ -201,12 +232,14 @@ struct MainView: View {
                         // Header with weather and location
                         headerSection
                         
-                        // Main progress circle
-                        ProgressCircleView()
-                            .frame(height: 300)
+                        // Main progress circle (swipeable)
+                        progressCircleSwitcher
                         
                         // Quick actions
                         quickActionsSection
+                        
+                        // Add Another Liquid button
+                        addAnotherLiquidButton
                         
                         // Today's summary
                         todaySummarySection
@@ -243,6 +276,48 @@ struct MainView: View {
                     }
                 }
             }
+        }
+    }
+    
+    // MARK: - Progress Circle Switcher
+    private var progressCircleSwitcher: some View {
+        TabView(selection: $progressMode) {
+            ProgressCircleView(mode: .water)
+                .environmentObject(liquidManager)
+                .environmentObject(locationManager)
+                .environmentObject(themeManager)
+                .tag(ProgressMode.water)
+            ProgressCircleView(mode: .total)
+                .environmentObject(liquidManager)
+                .environmentObject(locationManager)
+                .environmentObject(themeManager)
+                .tag(ProgressMode.total)
+        }
+        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
+        .frame(height: 320)
+        .padding(.bottom, 8)
+    }
+    
+    // MARK: - Add Another Liquid Button
+    private var addAnotherLiquidButton: some View {
+        Button(action: {
+            liquidManager.showingAddLiquidSheet = true
+        }) {
+            HStack {
+                Image(systemName: "plus.circle.fill")
+                    .foregroundColor(.purple)
+                Text("Add Another Liquid")
+                    .fontWeight(.semibold)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .background(Color.purple.opacity(0.1))
+            .cornerRadius(12)
+        }
+        .buttonStyle(PlainButtonStyle())
+        .sheet(isPresented: $liquidManager.showingAddLiquidSheet) {
+            AddLiquidView()
+                .environmentObject(liquidManager)
         }
     }
     
@@ -327,17 +402,23 @@ struct MainView: View {
             Text("Quick Actions")
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
                 QuickActionCard(
-                    icon: "plus.circle.fill",
+                    icon: "drop.fill",
                     title: "Add Water",
-                    subtitle: "Log your intake",
+                    subtitle: "Log water intake",
                     color: .blue
                 ) {
                     waterManager.showingDrinkOptions = true
                 }
-                
+                QuickActionCard(
+                    icon: "plus.circle.fill",
+                    title: "Add Another Liquid",
+                    subtitle: "Log other drinks",
+                    color: .purple
+                ) {
+                    liquidManager.showingAddLiquidSheet = true
+                }
                 QuickActionCard(
                     icon: "chart.bar.fill",
                     title: "Statistics",
@@ -346,7 +427,6 @@ struct MainView: View {
                 ) {
                     selectedTab = .statistics
                 }
-                
                 QuickActionCard(
                     icon: "trophy.fill",
                     title: "Achievements",
@@ -355,53 +435,40 @@ struct MainView: View {
                 ) {
                     selectedTab = .achievements
                 }
-                
-                QuickActionCard(
-                    icon: "bell.fill",
-                    title: "Reminders",
-                    subtitle: "Manage alerts",
-                    color: .purple
-                ) {
-                    selectedTab = .reminders
-                }
             }
         }
     }
-    
+
     // MARK: - Today Summary Section
     private var todaySummarySection: some View {
         VStack(spacing: 16) {
             Text("Today's Summary")
                 .font(.headline)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
                 SummaryCard(
-                    title: "Drinks",
-                    value: "\(waterManager.todayDrinks.count)",
+                    title: "Water",
+                    value: String(format: "%.1fL", liquidManager.totalWater / 1000),
                     subtitle: "Today",
                     color: .blue
                 )
-                
                 SummaryCard(
-                    title: "Average",
-                    value: String(format: "%.1fL", averageDrinkSize),
-                    subtitle: "Per drink",
-                    color: .green
-                )
-                
-                SummaryCard(
-                    title: "Streak",
-                    value: "\(hydrationHistory.currentStreak)",
-                    subtitle: "Days",
+                    title: "Other Liquids",
+                    value: String(format: "%.1fL", liquidManager.totalOtherLiquids / 1000),
+                    subtitle: "Today",
                     color: .orange
                 )
-                
                 SummaryCard(
-                    title: "Goal Met",
-                    value: waterManager.isGoalMet ? "Yes" : "No",
+                    title: "Total",
+                    value: String(format: "%.1fL", liquidManager.totalLiquids / 1000),
                     subtitle: "Today",
-                    color: waterManager.isGoalMet ? .green : .red
+                    color: .green
+                )
+                SummaryCard(
+                    title: "Caffeine",
+                    value: "\(liquidManager.totalCaffeine) mg",
+                    subtitle: "Total",
+                    color: .purple
                 )
             }
         }
@@ -580,6 +647,9 @@ struct MainView: View {
             weatherManager: weatherManager,
             aiWaterPredictor: aiWaterPredictor
         )
+        
+        // LiquidManager'a WaterManager'ı set et
+        liquidManager.setWaterManager(waterManager)
         
         // Request location permissions
         locationManager.requestLocationPermission()
@@ -858,4 +928,5 @@ struct ReminderPreviewRow: View {
         .environmentObject(AIWaterPredictor())
         .environmentObject(AIReminderManager())
         .environmentObject(ThemeManager())
+        .environmentObject(LiquidManager())
 } 

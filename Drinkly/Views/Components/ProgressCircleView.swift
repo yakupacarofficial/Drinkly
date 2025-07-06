@@ -7,16 +7,16 @@
 
 import SwiftUI
 
-/// Progress circle view showing water intake progress
+/// Progress circle view showing water or total liquid intake progress
 struct ProgressCircleView: View {
+    enum Mode { case water, total }
+    let mode: Mode
     
-    // MARK: - Environment Objects
-    @EnvironmentObject private var waterManager: WaterManager
+    @EnvironmentObject private var liquidManager: LiquidManager
     @EnvironmentObject private var locationManager: LocationManager
     @EnvironmentObject private var themeManager: ThemeManager
     
-    // MARK: - Private Properties
-    @State private var cachedProgressPercentage: Double = 0.0
+    @State private var cachedProgress: Double = 0.0
     @State private var cachedCurrentAmount: Double = 0.0
     @State private var cachedDailyGoal: Double = 0.0
     
@@ -25,27 +25,14 @@ struct ProgressCircleView: View {
             progressContainer
             progressText
         }
-        .onChange(of: waterManager.progressPercentage) { _, newValue in
-            // Convert percentage to 0-1 range for circle animation
-            var progress = newValue / 100.0
-            
-            // If progress is very close to 100%, set it to 1.0 (100%)
-            if progress >= 0.995 {
-                progress = 1.0
-            }
-            
-            cachedProgressPercentage = progress
-        }
-        .onChange(of: waterManager.currentAmount) { _, newValue in
-            cachedCurrentAmount = newValue
-        }
-        .onChange(of: waterManager.dailyGoal) { _, newValue in
-            cachedDailyGoal = newValue
-        }
+        .onAppear { updateCache() }
+        .onChange(of: progressValue) { _, _ in updateCache() }
+        .onChange(of: currentAmount) { _, _ in updateCache() }
+        .onChange(of: dailyGoal) { _, _ in updateCache() }
+        .onChange(of: liquidManager.drinks) { _, _ in updateCache() }
     }
     
     // MARK: - Private Views
-    
     private var progressContainer: some View {
         ZStack {
             backgroundCircle
@@ -53,19 +40,17 @@ struct ProgressCircleView: View {
             waterDropIcon
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Water progress")
-        .accessibilityValue("\(Int(waterManager.progressPercentage))% complete, \(String(format: "%.1f", cachedCurrentAmount)) liters of \(String(format: "%.1f", cachedDailyGoal)) liters")
+        .accessibilityLabel("Liquid progress")
+        .accessibilityValue("\(Int(progressValue * 100))% complete, \(String(format: "%.1f", currentAmount)) ml of \(String(format: "%.1f", dailyGoal)) ml")
     }
-    
     private var backgroundCircle: some View {
         Circle()
-            .stroke(Color.blue.opacity(0.2), lineWidth: Constants.UI.progressStrokeWidth)
+            .stroke(mode == .water ? Color.blue.opacity(0.2) : Color.green.opacity(0.2), lineWidth: Constants.UI.progressStrokeWidth)
             .frame(width: Constants.UI.progressCircleSize, height: Constants.UI.progressCircleSize)
     }
-    
     private var progressCircle: some View {
         Circle()
-            .trim(from: 0, to: cachedProgressPercentage)
+            .trim(from: 0, to: cachedProgress)
             .stroke(
                 LinearGradient(
                     gradient: Gradient(colors: progressColors),
@@ -76,80 +61,91 @@ struct ProgressCircleView: View {
             )
             .frame(width: Constants.UI.progressCircleSize, height: Constants.UI.progressCircleSize)
             .rotationEffect(.degrees(-90))
-            .animation(.easeInOut(duration: Constants.AnimationDuration.slow), value: cachedProgressPercentage)
+            .animation(.easeInOut(duration: Constants.AnimationDuration.slow), value: cachedProgress)
     }
-    
     private var waterDropIcon: some View {
         VStack(spacing: 8) {
-            Image(systemName: "drop.fill")
+            Image(systemName: mode == .water ? "drop.fill" : "drop.triangle.fill")
                 .font(.system(size: 40))
-                .foregroundColor(.blue)
-                .scaleEffect(waterManager.isAnimating ? 1.2 : 1.0)
-                .animation(.easeInOut(duration: Constants.AnimationDuration.standard).repeatForever(autoreverses: true), value: waterManager.isAnimating)
+                .foregroundColor(mode == .water ? .blue : .green)
                 .accessibilityHidden(true)
-            
             VStack(spacing: 4) {
-                Text("\(String(format: "%.1f", cachedCurrentAmount))L")
+                Text("\(String(format: "%.1f", currentAmount / 1000))L")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(.blue)
-                
-                Text("of \(String(format: "%.1f", cachedDailyGoal))L")
+                    .foregroundColor(mode == .water ? .blue : .green)
+                Text("of \(String(format: "%.1f", dailyGoal / 1000))L")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
     }
-    
     private var progressText: some View {
         VStack(spacing: 4) {
-            Text("\(Int(waterManager.progressPercentage))% Complete")
+            Text("\(Int(progressValue * 100))% Complete")
                 .font(.headline)
-                .foregroundColor(.blue)
-            
-            Text("\(String(format: "%.1f", waterManager.remainingAmount))L remaining")
+                .foregroundColor(mode == .water ? .blue : .green)
+            Text("\(String(format: "%.1f", (dailyGoal - currentAmount) / 1000))L remaining")
                 .font(.caption)
                 .foregroundColor(.secondary)
-            
             if !locationManager.city.isEmpty {
                 locationInfo
             }
         }
     }
-    
     private var locationInfo: some View {
-        Text("Your location: \(locationManager.city). Your water goal: \(String(format: "%.2f", cachedDailyGoal))L 💧")
+        Text("Your location: \(locationManager.city). Your liquid goal: \(String(format: "%.1f", dailyGoal / 1000))L 💧")
             .font(.caption)
-            .foregroundColor(.blue)
+            .foregroundColor(mode == .water ? .blue : .green)
             .multilineTextAlignment(.center)
     }
-    
     // MARK: - Computed Properties
-    
-    private var progressColors: [Color] {
-        let percentage = cachedProgressPercentage
-        switch percentage {
-        case 0..<0.33:
-            return [.gray, .gray.opacity(0.7)]
-        case 0.33..<0.67:
-            return [.blue, .blue.opacity(0.7)]
-        default:
-            return [.green, .green.opacity(0.7)]
+    private var progressValue: Double {
+        switch mode {
+        case .water: return min(1.0, liquidManager.totalWater / dailyGoal)
+        case .total: return min(1.0, liquidManager.totalLiquids / dailyGoal)
         }
+    }
+    private var currentAmount: Double {
+        switch mode {
+        case .water: return liquidManager.totalWater
+        case .total: return liquidManager.totalLiquids
+        }
+    }
+    private var dailyGoal: Double { liquidManager.dailyGoal }
+    private var progressColors: [Color] {
+        let p = progressValue
+        if mode == .water {
+            switch p {
+            case 0..<0.33: return [.gray, .gray.opacity(0.7)]
+            case 0.33..<0.67: return [.blue, .blue.opacity(0.7)]
+            default: return [.green, .green.opacity(0.7)]
+            }
+        } else {
+            switch p {
+            case 0..<0.33: return [.gray, .gray.opacity(0.7)]
+            case 0.33..<0.67: return [.green, .green.opacity(0.7)]
+            default: return [.blue, .blue.opacity(0.7)]
+            }
+        }
+    }
+    private func updateCache() {
+        var progress = progressValue
+        
+        // Hedefe ulaşıldığında %100 göster (floating point precision sorunu için)
+        if progress >= 0.999 || currentAmount >= dailyGoal {
+            progress = 1.0
+        }
+        
+        cachedProgress = progress
+        cachedCurrentAmount = currentAmount
+        cachedDailyGoal = dailyGoal
     }
 }
 
-// MARK: - Preview
 #Preview {
-    ProgressCircleView()
-        .environmentObject(WaterManager())
-        .environmentObject(LocationManager())
-        .environmentObject(WeatherManager())
-        .environmentObject(NotificationManager.shared)
-        .environmentObject(PerformanceMonitor.shared)
-        .environmentObject(HydrationHistory())
-        .environmentObject(AchievementManager())
-        .environmentObject(SmartReminderManager())
-        .environmentObject(ThemeManager())
-        .padding()
+    VStack {
+        ProgressCircleView(mode: .water).environmentObject(LiquidManager()).environmentObject(LocationManager()).environmentObject(ThemeManager())
+        ProgressCircleView(mode: .total).environmentObject(LiquidManager()).environmentObject(LocationManager()).environmentObject(ThemeManager())
+    }.padding()
 } 

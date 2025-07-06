@@ -9,712 +9,320 @@ import SwiftUI
 import Charts
 
 struct StatisticsView: View {
-    @EnvironmentObject private var hydrationHistory: HydrationHistory
-    @EnvironmentObject private var themeManager: ThemeManager
+    @EnvironmentObject private var liquidManager: LiquidManager
+    @State private var selectedTab: StatTab = .water
     @State private var selectedTimeRange: TimeRange = .daily
-    @State private var showingDatePicker = false
-    @State private var selectedDate = Date()
     
-    enum TimeRange: String, CaseIterable {
-        case daily = "Daily"
-        case week = "Week"
-        case month = "Month"
-        case year = "Year"
+    enum StatTab: String, CaseIterable, Identifiable {
+        case water = "Water"
+        case other = "Other Liquids"
+        case total = "Total"
+        var id: String { rawValue }
     }
     
     var body: some View {
         NavigationView {
-            ScrollView {
-                VStack(spacing: 24) {
-                    // Header with streak information
-                    streakHeader
-                    
-                    // Time range selector
-                    timeRangeSelector
-                    
-                    // Main statistics content
-                    statisticsContent
+            VStack(spacing: 0) {
+                // Main tab picker
+                Picker("Tab", selection: $selectedTab) {
+                    ForEach(StatTab.allCases) { tab in
+                        Text(tab.rawValue).tag(tab)
+                    }
                 }
+                .pickerStyle(SegmentedPickerStyle())
                 .padding()
+                
+                // Time range picker
+                Picker("Time Range", selection: $selectedTimeRange) {
+                    ForEach(TimeRange.allCases) { timeRange in
+                        Text(timeRange.displayName).tag(timeRange)
+                    }
+                }
+                .pickerStyle(SegmentedPickerStyle())
+                .padding(.horizontal)
+                
+                TabView(selection: $selectedTab) {
+                    waterStats
+                        .tag(StatTab.water)
+                    otherStats
+                        .tag(StatTab.other)
+                    totalStats
+                        .tag(StatTab.total)
+                }
+                .tabViewStyle(PageTabViewStyle(indexDisplayMode: .never))
             }
             .navigationTitle("Statistics")
             .navigationBarTitleDisplayMode(.large)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Export") {
-                        exportData()
-                    }
-                }
-            }
         }
     }
     
-    // MARK: - Streak Header
-    private var streakHeader: some View {
-        VStack(spacing: 16) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Current Streak")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("\(hydrationHistory.currentStreak) days")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.blue)
-                }
-                
-                Spacer()
-                
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text("Longest Streak")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    Text("\(hydrationHistory.longestStreak) days")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.orange)
-                }
-            }
-            
-            // Progress bar for current streak
-            if hydrationHistory.currentStreak > 0 {
-                ProgressView(value: Double(hydrationHistory.currentStreak), total: Double(max(hydrationHistory.currentStreak, 7)))
-                    .progressViewStyle(LinearProgressViewStyle(tint: .blue))
-                    .frame(height: 8)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(16)
-    }
-    
-    // MARK: - Time Range Selector
-    private var timeRangeSelector: some View {
-        Picker("Time Range", selection: $selectedTimeRange) {
-            ForEach(TimeRange.allCases, id: \.self) { range in
-                Text(range.rawValue).tag(range)
-            }
-        }
-        .pickerStyle(SegmentedPickerStyle())
-        .padding(.horizontal)
-    }
-    
-    // MARK: - Statistics Content
-    private var statisticsContent: some View {
-        VStack(spacing: 20) {
-            switch selectedTimeRange {
-            case .daily:
-                dailyStatistics
-            case .week:
-                weeklyStatistics
-            case .month:
-                monthlyStatistics
-            case .year:
-                yearlyStatistics
-            }
-        }
-    }
-    
-    // MARK: - Daily Statistics
-    private var dailyStatistics: some View {
-        VStack(spacing: 20) {
-            // Daily chart
-            dailyChart
-            
-            // Daily summary cards
+    // MARK: - Water Statistics
+    private var waterStats: some View {
+        VStack(spacing: 24) {
+            // Summary cards
             LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
-                StatCard(
-                    title: "Total Intake",
-                    value: String(format: "%.1fL", dailyTotalIntake),
+                StatisticsSummaryCard(
+                    title: "Total Water",
+                    value: String(format: "%.1fL", liquidManager.totalWater / 1000),
                     subtitle: "Today",
                     color: .blue
                 )
-                
-                StatCard(
+                StatisticsSummaryCard(
+                    title: "Water Progress",
+                    value: String(format: "%.0f%%", liquidManager.waterProgress * 100),
+                    subtitle: "Goal",
+                    color: .blue
+                )
+            }
+            
+            // Time-based chart
+            TimeBasedChart(
+                data: liquidManager.getWaterTimeData(for: selectedTimeRange),
+                title: "Water Intake - \(selectedTimeRange.displayName)",
+                color: .blue,
+                timeRange: selectedTimeRange
+            )
+            
+            Spacer()
+        }.padding()
+    }
+    
+    // MARK: - Other Liquids Statistics
+    private var otherStats: some View {
+        VStack(spacing: 24) {
+            // Summary cards
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
+                StatisticsSummaryCard(
+                    title: "Other Liquids",
+                    value: String(format: "%.1fL", liquidManager.totalOtherLiquids / 1000),
+                    subtitle: "Today",
+                    color: .orange
+                )
+                StatisticsSummaryCard(
+                    title: "Caffeine",
+                    value: "\(liquidManager.totalCaffeine) mg",
+                    subtitle: "Total",
+                    color: .purple
+                )
+            }
+            
+            // Time-based chart
+            TimeBasedChart(
+                data: liquidManager.getOtherLiquidsTimeData(for: selectedTimeRange),
+                title: "Other Liquids - \(selectedTimeRange.displayName)",
+                color: .orange,
+                timeRange: selectedTimeRange
+            )
+            
+            Spacer()
+        }.padding()
+    }
+    
+    // MARK: - Total Liquids Statistics
+    private var totalStats: some View {
+        VStack(spacing: 24) {
+            // Summary cards
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
+                StatisticsSummaryCard(
+                    title: "Total Intake",
+                    value: String(format: "%.1fL", liquidManager.totalLiquids / 1000),
+                    subtitle: "Today",
+                    color: .green
+                )
+                StatisticsSummaryCard(
                     title: "Goal Progress",
-                    value: String(format: "%.0f%%", dailyGoalProgress),
-                    subtitle: "Target: 2.5L",
+                    value: String(format: "%.0f%%", liquidManager.totalProgress * 100),
+                    subtitle: "Target",
                     color: .green
                 )
-                
-                StatCard(
-                    title: "Drinks Today",
-                    value: "\(dailyDrinkCount)",
-                    subtitle: "Total drinks",
-                    color: .orange
-                )
-                
-                StatCard(
-                    title: "Average per Drink",
-                    value: String(format: "%.0fml", dailyAveragePerDrink),
-                    subtitle: "Per drink",
-                    color: .purple
-                )
-            }
-        }
-    }
-    
-    // MARK: - Weekly Statistics
-    private var weeklyStatistics: some View {
-        VStack(spacing: 20) {
-            // Weekly chart
-            weeklyChart
-            
-            // Weekly summary cards
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
-                StatCard(
-                    title: "Total Intake",
-                    value: String(format: "%.1fL", weeklyTotalIntake),
-                    subtitle: "This week",
-                    color: .blue
-                )
-                
-                StatCard(
-                    title: "Average Daily",
-                    value: String(format: "%.1fL", weeklyAverageIntake),
-                    subtitle: "Per day",
-                    color: .green
-                )
-                
-                StatCard(
-                    title: "Goal Met",
-                    value: "\(weeklyGoalMetDays)/7",
-                    subtitle: "Days this week",
-                    color: .orange
-                )
-                
-                StatCard(
-                    title: "Success Rate",
-                    value: String(format: "%.0f%%", weeklySuccessRate),
-                    subtitle: "Goal achievement",
-                    color: .purple
-                )
-            }
-        }
-    }
-    
-    // MARK: - Monthly Statistics
-    private var monthlyStatistics: some View {
-        VStack(spacing: 20) {
-            // Monthly chart
-            monthlyChart
-            
-            // Monthly summary cards
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
-                StatCard(
-                    title: "Total Intake",
-                    value: String(format: "%.1fL", monthlyTotalIntake),
-                    subtitle: "This month",
-                    color: .blue
-                )
-                
-                StatCard(
-                    title: "Average Daily",
-                    value: String(format: "%.1fL", monthlyAverageIntake),
-                    subtitle: "Per day",
-                    color: .green
-                )
-                
-                StatCard(
-                    title: "Goal Met",
-                    value: "\(monthlyGoalMetDays)/\(monthlyTotalDays)",
-                    subtitle: "Days this month",
-                    color: .orange
-                )
-                
-                StatCard(
-                    title: "Longest Streak",
-                    value: "\(monthlyLongestStreak) days",
-                    subtitle: "This month",
-                    color: .red
-                )
-            }
-        }
-    }
-    
-    // MARK: - Yearly Statistics
-    private var yearlyStatistics: some View {
-        VStack(spacing: 20) {
-            // Yearly chart
-            yearlyChart
-            
-            // Yearly summary
-            yearlySummary
-        }
-    }
-    
-    // MARK: - Charts
-    private var dailyChart: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Hourly Water Intake")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            if #available(iOS 16.0, *) {
-                Chart(dailyData) { data in
-                    BarMark(
-                        x: .value("Hour", data.hour),
-                        y: .value("Intake", data.intake)
-                    )
-                    .foregroundStyle(Color.blue.gradient)
-                    .cornerRadius(4)
-                    
-                    RuleMark(y: .value("Goal", 2.5))
-                        .foregroundStyle(.red)
-                        .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
-                }
-                .frame(height: 250)
-                .chartYAxis {
-                    AxisMarks(position: .leading) { value in
-                        AxisValueLabel {
-                            Text("\(value.as(Double.self)?.formatted(.number.precision(.fractionLength(1))) ?? "")L")
-                        }
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks { value in
-                        AxisValueLabel {
-                            Text("\(value.as(Int.self) ?? 0)h")
-                        }
-                    }
-                }
-            } else {
-                // Fallback for iOS 15
-                Text("Charts available in iOS 16+")
-                    .foregroundColor(.secondary)
-                    .frame(height: 250)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(16)
-    }
-    
-    private var weeklyChart: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Daily Water Intake")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            if #available(iOS 16.0, *) {
-                Chart(weeklyData) { data in
-                    BarMark(
-                        x: .value("Day", data.day),
-                        y: .value("Intake", data.intake)
-                    )
-                    .foregroundStyle(Color.green.gradient)
-                    .cornerRadius(4)
-                    
-                    RuleMark(y: .value("Goal", 2.5))
-                        .foregroundStyle(.red)
-                        .lineStyle(StrokeStyle(lineWidth: 2, dash: [5, 5]))
-                }
-                .frame(height: 250)
-                .chartYAxis {
-                    AxisMarks(position: .leading) { value in
-                        AxisValueLabel {
-                            Text("\(value.as(Double.self)?.formatted(.number.precision(.fractionLength(1))) ?? "")L")
-                        }
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks { value in
-                        AxisValueLabel()
-                    }
-                }
-            } else {
-                // Fallback for iOS 15
-                Text("Charts available in iOS 16+")
-                    .foregroundColor(.secondary)
-                    .frame(height: 250)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(16)
-    }
-    
-    private var monthlyChart: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Monthly Water Intake")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            if #available(iOS 16.0, *) {
-                Chart(monthlyData) { data in
-                    BarMark(
-                        x: .value("Month", data.month),
-                        y: .value("Intake", data.intake)
-                    )
-                    .foregroundStyle(Color.orange.gradient)
-                    .cornerRadius(4)
-                }
-                .frame(height: 250)
-                .chartYAxis {
-                    AxisMarks(position: .leading) { value in
-                        AxisValueLabel {
-                            Text("\(value.as(Double.self)?.formatted(.number.precision(.fractionLength(0))) ?? "")L")
-                        }
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks { value in
-                        AxisValueLabel()
-                    }
-                }
-            } else {
-                // Fallback for iOS 15
-                Text("Charts available in iOS 16+")
-                    .foregroundColor(.secondary)
-                    .frame(height: 250)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(16)
-    }
-    
-    private var yearlyChart: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Yearly Water Intake")
-                .font(.headline)
-                .foregroundColor(.primary)
-            
-            if #available(iOS 16.0, *) {
-                Chart(yearlyData) { data in
-                    BarMark(
-                        x: .value("Year", data.year),
-                        y: .value("Intake", data.intake)
-                    )
-                    .foregroundStyle(Color.purple.gradient)
-                    .cornerRadius(4)
-                }
-                .frame(height: 250)
-                .chartYAxis {
-                    AxisMarks(position: .leading) { value in
-                        AxisValueLabel {
-                            Text("\(value.as(Double.self)?.formatted(.number.precision(.fractionLength(0))) ?? "")L")
-                        }
-                    }
-                }
-                .chartXAxis {
-                    AxisMarks { value in
-                        AxisValueLabel()
-                    }
-                }
-            } else {
-                // Fallback for iOS 15
-                Text("Charts available in iOS 16+")
-                    .foregroundColor(.secondary)
-                    .frame(height: 250)
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(16)
-    }
-    
-    // MARK: - Yearly Summary
-    private var yearlySummary: some View {
-        VStack(spacing: 16) {
-            Text("Yearly Summary")
-                .font(.headline)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 16) {
-                StatCard(
-                    title: "Total Intake",
-                    value: String(format: "%.0fL", yearlyTotalIntake),
-                    subtitle: "This year",
-                    color: .blue
-                )
-                
-                StatCard(
-                    title: "Average Daily",
-                    value: String(format: "%.1fL", yearlyAverageIntake),
-                    subtitle: "Per day",
-                    color: .green
-                )
-                
-                StatCard(
-                    title: "Goal Met",
-                    value: "\(yearlyGoalMetDays) days",
-                    subtitle: "This year",
-                    color: .orange
-                )
-                
-                StatCard(
-                    title: "Success Rate",
-                    value: String(format: "%.0f%%", yearlySuccessRate),
-                    subtitle: "Goal achievement",
-                    color: .purple
-                )
-            }
-        }
-    }
-    
-    // MARK: - Computed Properties
-    private var dailyData: [HourlyChartData] {
-        let today = Date()
-        let calendar = Calendar.current
-        let dayStart = calendar.startOfDay(for: today)
-        
-        var hourlyData: [HourlyChartData] = []
-        
-        for hour in 0..<24 {
-            let hourDate = calendar.date(byAdding: .hour, value: hour, to: dayStart) ?? today
-            let nextHourDate = calendar.date(byAdding: .hour, value: 1, to: hourDate) ?? today
-            
-            let hourRecords = hydrationHistory.getRecords(for: DateInterval(start: hourDate, end: nextHourDate))
-            let totalIntake = hourRecords.reduce(0) { $0 + $1.totalIntake }
-            
-            hourlyData.append(HourlyChartData(
-                hour: hour,
-                intake: totalIntake
-            ))
-        }
-        
-        return hourlyData
-    }
-    
-    private var weeklyData: [DailyChartData] {
-        let calendar = Calendar.current
-        let today = Date()
-        guard let weekStart = calendar.dateInterval(of: .weekOfYear, for: today)?.start else {
-            return []
-        }
-        
-        let weekEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? today
-        let weekRecords = hydrationHistory.getRecords(for: DateInterval(start: weekStart, end: weekEnd))
-        
-        let dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-        var chartData: [DailyChartData] = []
-        
-        for (index, dayName) in dayNames.enumerated() {
-            let dayDate = calendar.date(byAdding: .day, value: index, to: weekStart) ?? today
-            let dayRecord = weekRecords.first { Calendar.current.isDate($0.date, inSameDayAs: dayDate) }
-            let intake = dayRecord?.totalIntake ?? 0
-            
-            chartData.append(DailyChartData(
-                day: dayName,
-                intake: intake
-            ))
-        }
-        
-        return chartData
-    }
-    
-    private var monthlyData: [MonthlyChartData] {
-        let calendar = Calendar.current
-        let today = Date()
-        let yearStart = calendar.dateInterval(of: .year, for: today)?.start ?? today
-        
-        let monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", 
-                         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        var chartData: [MonthlyChartData] = []
-        
-        for monthIndex in 0..<12 {
-            guard let monthStart = calendar.date(byAdding: .month, value: monthIndex, to: yearStart),
-                  let monthEnd = calendar.date(byAdding: .month, value: 1, to: monthStart) else {
-                continue
             }
             
-            let monthRecords = hydrationHistory.getRecords(for: DateInterval(start: monthStart, end: monthEnd))
-            let totalIntake = monthRecords.reduce(0) { $0 + $1.totalIntake }
-            
-            chartData.append(MonthlyChartData(
-                month: monthNames[monthIndex],
-                intake: totalIntake
-            ))
-        }
-        
-        return chartData
-    }
-    
-    private var yearlyData: [YearlyChartData] {
-        let calendar = Calendar.current
-        let today = Date()
-        var chartData: [YearlyChartData] = []
-        
-        // Get data for last 5 years
-        for yearOffset in 0..<5 {
-            guard let yearStart = calendar.date(byAdding: .year, value: -yearOffset, to: today),
-                  let yearEnd = calendar.date(byAdding: .year, value: 1, to: yearStart) else {
-                continue
+            // Time-based chart for total (combine water and other liquids)
+            let totalData = liquidManager.getWaterTimeData(for: selectedTimeRange).map { waterData in
+                let otherData = liquidManager.getOtherLiquidsTimeData(for: selectedTimeRange)
+                    .first { $0.label == waterData.label }
+                let otherAmount = otherData?.value ?? 0
+                return TimeData(
+                    id: UUID(),
+                    label: waterData.label,
+                    value: waterData.value + otherAmount,
+                    date: waterData.date,
+                    caffeine: waterData.caffeine + (otherData?.caffeine ?? 0),
+                    drinkCount: waterData.drinkCount + (otherData?.drinkCount ?? 0)
+                )
             }
             
-            let yearRecords = hydrationHistory.getRecords(for: DateInterval(start: yearStart, end: yearEnd))
-            let totalIntake = yearRecords.reduce(0) { $0 + $1.totalIntake }
-            let year = calendar.component(.year, from: yearStart)
+            TimeBasedChart(
+                data: totalData,
+                title: "Total Liquids - \(selectedTimeRange.displayName)",
+                color: .green,
+                timeRange: selectedTimeRange
+            )
             
-            chartData.append(YearlyChartData(
-                year: year,
-                intake: totalIntake
-            ))
-        }
-        
-        return chartData.reversed()
-    }
-    
-    // MARK: - Daily Statistics
-    private var dailyTotalIntake: Double {
-        dailyData.reduce(0) { $0 + $1.intake }
-    }
-    
-    private var dailyGoalProgress: Double {
-        let goal = 2.5
-        return min(100, (dailyTotalIntake / goal) * 100)
-    }
-    
-    private var dailyDrinkCount: Int {
-        let today = Date()
-        let calendar = Calendar.current
-        let dayStart = calendar.startOfDay(for: today)
-        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart) ?? today
-        
-        let dayRecords = hydrationHistory.getRecords(for: DateInterval(start: dayStart, end: dayEnd))
-        return dayRecords.reduce(0) { $0 + $1.drinks.count }
-    }
-    
-    private var dailyAveragePerDrink: Double {
-        let totalDrinks = dailyDrinkCount
-        return totalDrinks > 0 ? (dailyTotalIntake * 1000) / Double(totalDrinks) : 0
-    }
-    
-    // MARK: - Weekly Statistics
-    private var weeklyTotalIntake: Double {
-        weeklyData.reduce(0) { $0 + $1.intake }
-    }
-    
-    private var weeklyAverageIntake: Double {
-        let daysWithData = weeklyData.filter { $0.intake > 0 }.count
-        return daysWithData > 0 ? weeklyTotalIntake / Double(daysWithData) : 0
-    }
-    
-    private var weeklyGoalMetDays: Int {
-        weeklyData.filter { $0.intake >= 2.5 }.count
-    }
-    
-    private var weeklySuccessRate: Double {
-        let totalDays = weeklyData.count
-        return totalDays > 0 ? (Double(weeklyGoalMetDays) / Double(totalDays)) * 100 : 0
-    }
-    
-    // MARK: - Monthly Statistics
-    private var monthlyTotalIntake: Double {
-        monthlyData.reduce(0) { $0 + $1.intake }
-    }
-    
-    private var monthlyAverageIntake: Double {
-        let monthsWithData = monthlyData.filter { $0.intake > 0 }.count
-        return monthsWithData > 0 ? monthlyTotalIntake / Double(monthsWithData) : 0
-    }
-    
-    private var monthlyGoalMetDays: Int {
-        // This would need to be calculated from daily records
-        return 0 // Placeholder
-    }
-    
-    private var monthlyTotalDays: Int {
-        // This would need to be calculated from daily records
-        return 0 // Placeholder
-    }
-    
-    private var monthlyLongestStreak: Int {
-        // This would need to be calculated from daily records
-        return 0 // Placeholder
-    }
-    
-    // MARK: - Yearly Statistics
-    private var yearlyTotalIntake: Double {
-        yearlyData.reduce(0) { $0 + $1.intake }
-    }
-    
-    private var yearlyAverageIntake: Double {
-        let yearsWithData = yearlyData.filter { $0.intake > 0 }.count
-        return yearsWithData > 0 ? yearlyTotalIntake / Double(yearsWithData) : 0
-    }
-    
-    private var yearlyGoalMetDays: Int {
-        // This would need to be calculated from daily records
-        return 0 // Placeholder
-    }
-    
-    private var yearlySuccessRate: Double {
-        // This would need to be calculated from daily records
-        return 0 // Placeholder
-    }
-    
-    // MARK: - Helper Methods
-    private func exportData() {
-        // Data export functionality placeholder
+            Spacer()
+        }.padding()
     }
 }
 
-// MARK: - Supporting Views
-struct StatCard: View {
+// MARK: - Time-based Chart Component
+struct TimeBasedChart: View {
+    let data: [TimeData]
+    let title: String
+    let color: Color
+    let timeRange: TimeRange
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.headline)
+                .foregroundColor(.primary)
+            
+            if data.isEmpty {
+                EmptyChartView()
+            } else if #available(iOS 16.0, *) {
+                Chart(data) { item in
+                    BarMark(
+                        x: .value("Time", item.label),
+                        y: .value("Amount", item.value)
+                    )
+                    .foregroundStyle(color.gradient)
+                    .cornerRadius(4)
+                }
+                .frame(height: 200)
+                .chartXAxis {
+                    AxisMarks { _ in
+                        AxisValueLabel()
+                            .font(.caption)
+                    }
+                }
+                .chartYAxis {
+                    AxisMarks { value in
+                        AxisValueLabel {
+                            Text("\(String(format: "%.1f", (value.as(Double.self) ?? 0) / 1000))L")
+                                .font(.caption)
+                        }
+                    }
+                }
+            } else {
+                Text("Charts available in iOS 16+")
+                    .foregroundColor(.secondary)
+                    .frame(height: 200)
+            }
+            
+            // Statistics summary
+            if !data.isEmpty {
+                ChartSummaryView(data: data, color: color)
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+}
+
+// MARK: - Chart Summary View
+struct ChartSummaryView: View {
+    let data: [TimeData]
+    let color: Color
+    
+    private var totalAmount: Double {
+        data.reduce(0) { $0 + $1.value }
+    }
+    
+    private var averageAmount: Double {
+        data.isEmpty ? 0 : totalAmount / Double(data.count)
+    }
+    
+    private var maxAmount: Double {
+        data.map { $0.value }.max() ?? 0
+    }
+    
+    private var totalCaffeine: Int {
+        data.reduce(0) { $0 + $1.caffeine }
+    }
+    
+    var body: some View {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+            StatisticsStatItem(title: "Total", value: String(format: "%.1fL", totalAmount / 1000), color: color)
+            StatisticsStatItem(title: "Average", value: String(format: "%.1fL", averageAmount / 1000), color: color)
+            StatisticsStatItem(title: "Max", value: String(format: "%.1fL", maxAmount / 1000), color: color)
+            StatisticsStatItem(title: "Caffeine", value: "\(totalCaffeine) mg", color: .purple)
+        }
+    }
+}
+
+// MARK: - Empty Chart View
+struct EmptyChartView: View {
+    var body: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.system(size: 40))
+                .foregroundColor(.gray)
+            
+            Text("No Data Available")
+                .font(.headline)
+                .foregroundColor(.secondary)
+            
+            Text("Start drinking to see your statistics")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(height: 200)
+    }
+}
+
+// MARK: - Statistics Stat Item (renamed to avoid conflict)
+struct StatisticsStatItem: View {
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+// MARK: - Statistics Summary Card (renamed to avoid conflict)
+struct StatisticsSummaryCard: View {
     let title: String
     let value: String
     let subtitle: String
     let color: Color
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title)
-                .font(.caption)
-                .foregroundColor(.secondary)
-            
+        VStack(spacing: 8) {
             Text(value)
                 .font(.title2)
                 .fontWeight(.bold)
                 .foregroundColor(color)
             
+            Text(title)
+                .font(.caption)
+                .foregroundColor(.secondary)
+            
             Text(subtitle)
                 .font(.caption2)
                 .foregroundColor(.secondary)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 2)
     }
-}
-
-// MARK: - Chart Data Models
-struct HourlyChartData: Identifiable {
-    let id = UUID()
-    let hour: Int
-    let intake: Double
-}
-
-struct DailyChartData: Identifiable {
-    let id = UUID()
-    let day: String
-    let intake: Double
-}
-
-struct MonthlyChartData: Identifiable {
-    let id = UUID()
-    let month: String
-    let intake: Double
-}
-
-struct YearlyChartData: Identifiable {
-    let id = UUID()
-    let year: Int
-    let intake: Double
 }
 
 // MARK: - Preview
 #Preview {
-    StatisticsView()
-        .environmentObject(WaterManager())
-        .environmentObject(LocationManager())
-        .environmentObject(WeatherManager())
-        .environmentObject(NotificationManager.shared)
-        .environmentObject(PerformanceMonitor.shared)
-        .environmentObject(HydrationHistory())
-        .environmentObject(AchievementManager())
-        .environmentObject(SmartReminderManager())
-        .environmentObject(ThemeManager())
+    StatisticsView().environmentObject(LiquidManager())
 }
