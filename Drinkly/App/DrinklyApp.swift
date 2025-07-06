@@ -19,6 +19,7 @@ struct DrinklyApp: App {
     @StateObject private var smartReminderManager = SmartReminderManager()
     @StateObject private var profilePictureManager = ProfilePictureManager()
     @StateObject private var aiWaterPredictor = AIWaterPredictor()
+    @StateObject private var aiReminderManager = AIReminderManager()
 
     var body: some Scene {
         WindowGroup {
@@ -33,6 +34,7 @@ struct DrinklyApp: App {
                 .environmentObject(smartReminderManager)
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
+                .environmentObject(aiReminderManager)
                 .preferredColorScheme(.light)
                 .onAppear {
                     setupApp()
@@ -47,6 +49,7 @@ struct DrinklyApp: App {
                         .environmentObject(hydrationHistory)
                         .environmentObject(achievementManager)
                         .environmentObject(smartReminderManager)
+                        .environmentObject(aiReminderManager)
                 }
                 .sheet(isPresented: $waterManager.showingCelebration) {
                     CelebrationView(isShowing: $waterManager.showingCelebration)
@@ -58,6 +61,7 @@ struct DrinklyApp: App {
                         .environmentObject(hydrationHistory)
                         .environmentObject(achievementManager)
                         .environmentObject(smartReminderManager)
+                        .environmentObject(aiReminderManager)
                 }
         }
     }
@@ -128,6 +132,9 @@ struct DrinklyApp: App {
         
         // Initialize smart reminders
         smartReminderManager.analyzeAndSuggest()
+        
+        // Initialize AI reminder manager
+        aiReminderManager.analyzeAndSuggestReminders()
         
         // Load achievement data
         achievementManager.loadAchievements()
@@ -237,6 +244,9 @@ extension DrinklyApp {
         
         // Schedule smart reminder analysis
         smartReminderManager.analyzeAndSuggest()
+        
+        // Schedule AI reminder analysis
+        aiReminderManager.analyzeAndSuggestReminders()
     }
 }
 

@@ -200,7 +200,8 @@ class AIWaterPredictor: ObservableObject {
             return DrinkingPattern(
                 timeSlot: getTimeSlotName(hour),
                 frequency: frequency,
-                averageAmount: averageAmount
+                averageAmount: averageAmount,
+                acceptanceRate: 1.0 // Default to high acceptance rate
             )
         }.sorted { $0.frequency > $1.frequency }
     }

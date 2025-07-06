@@ -9,11 +9,13 @@ import SwiftUI
 
 struct SmartRemindersView: View {
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
+    @EnvironmentObject private var aiReminderManager: AIReminderManager
     @State private var showingAddReminder = false
     @State private var selectedReminder: SmartReminder?
     @State private var showingEditReminder = false
     @State private var showingSuggestion = false
     @State private var currentSuggestion: SmartReminder?
+    @State private var showingAIInsights = false
     
     var body: some View {
         NavigationView {
@@ -28,8 +30,20 @@ struct SmartRemindersView: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Analyze") {
-                        smartReminderManager.analyzeAndSuggest()
+                    Menu {
+                        Button("Analyze Patterns") {
+                            smartReminderManager.analyzeAndSuggest()
+                        }
+                        
+                        Button("AI Analysis") {
+                            aiReminderManager.analyzeAndSuggestReminders()
+                        }
+                        
+                        Button("AI Insights") {
+                            showingAIInsights = true
+                        }
+                    } label: {
+                        Image(systemName: "brain.head.profile")
                     }
                 }
                 
@@ -45,6 +59,20 @@ struct SmartRemindersView: View {
             .sheet(isPresented: $showingEditReminder) {
                 if let reminder = selectedReminder {
                     EditReminderView(reminder: reminder)
+                }
+            }
+            .sheet(isPresented: $showingAIInsights) {
+                NavigationView {
+                    AIReminderInsightsView(aiReminderManager: aiReminderManager)
+                        .navigationTitle("AI Insights")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .navigationBarTrailing) {
+                                Button("Done") {
+                                    showingAIInsights = false
+                                }
+                            }
+                        }
                 }
             }
             .overlay(
@@ -147,18 +175,39 @@ struct SmartRemindersView: View {
                                 showingEditReminder = true
                             },
                             onToggle: {
-                                toggleReminder(reminder)
+                                await toggleReminder(reminder)
                             },
                             onDelete: {
-                                deleteReminder(reminder)
+                                await deleteReminder(reminder)
                             }
                         )
                     }
                 }
                 
-                // Suggested reminders
+                // AI Suggested reminders
+                if !aiReminderManager.suggestedReminders.isEmpty {
+                    Section(header: sectionHeader("AI Suggestions", count: aiReminderManager.suggestedReminders.count)) {
+                        ForEach(aiReminderManager.suggestedReminders) { suggestion in
+                            AIReminderSuggestionView(
+                                suggestion: suggestion,
+                                onAccept: {
+                                    Task {
+                                        await aiReminderManager.acceptSuggestion(suggestion)
+                                    }
+                                },
+                                onDismiss: {
+                                    Task {
+                                        await aiReminderManager.dismissSuggestion(suggestion)
+                                    }
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                // Smart suggested reminders
                 if !smartReminderManager.suggestedReminders.isEmpty {
-                    Section(header: sectionHeader("Suggested Reminders", count: smartReminderManager.suggestedReminders.count)) {
+                    Section(header: sectionHeader("Smart Suggestions", count: smartReminderManager.suggestedReminders.count)) {
                         ForEach(smartReminderManager.suggestedReminders) { suggestion in
                             SuggestedReminderCard(
                                 suggestion: suggestion,
@@ -184,10 +233,10 @@ struct SmartRemindersView: View {
                                     showingEditReminder = true
                                 },
                                 onToggle: {
-                                    toggleReminder(reminder)
+                                    await toggleReminder(reminder)
                                 },
                                 onDelete: {
-                                    deleteReminder(reminder)
+                                    await deleteReminder(reminder)
                                 }
                             )
                         }
@@ -227,7 +276,7 @@ struct SmartRemindersView: View {
         .padding(.vertical, 8)
     }
     
-    private func toggleReminder(_ reminder: SmartReminder) {
+    private func toggleReminder(_ reminder: SmartReminder) async {
         if let index = smartReminderManager.reminders.firstIndex(where: { $0.id == reminder.id }) {
             var updatedReminder = reminder
             updatedReminder = SmartReminder(
@@ -240,11 +289,21 @@ struct SmartRemindersView: View {
             )
             smartReminderManager.reminders[index] = updatedReminder
             smartReminderManager.saveReminders()
+            
+            // Record behavior for AI learning
+            if !reminder.isEnabled {
+                await aiReminderManager.recordReminderSkipped(reminder)
+            } else {
+                await aiReminderManager.recordReminderCompleted(reminder)
+            }
         }
     }
     
-    private func deleteReminder(_ reminder: SmartReminder) {
+    private func deleteReminder(_ reminder: SmartReminder) async {
         smartReminderManager.removeReminder(reminder)
+        
+        // Record deletion for AI learning
+        await aiReminderManager.recordReminderSkipped(reminder)
     }
 }
 
@@ -282,8 +341,8 @@ struct SmartFeatureCard: View {
 struct ReminderCard: View {
     let reminder: SmartReminder
     let onEdit: () -> Void
-    let onToggle: () -> Void
-    let onDelete: () -> Void
+    let onToggle: () async -> Void
+    let onDelete: () async -> Void
     
     var body: some View {
         VStack(spacing: 12) {
@@ -335,7 +394,9 @@ struct ReminderCard: View {
                 .font(.caption)
                 
                 Button(reminder.isEnabled ? "Disable" : "Enable") {
-                    onToggle()
+                    Task {
+                        await onToggle()
+                    }
                 }
                 .buttonStyle(.bordered)
                 .font(.caption)
@@ -344,7 +405,9 @@ struct ReminderCard: View {
                 Spacer()
                 
                 Button("Delete") {
-                    onDelete()
+                    Task {
+                        await onDelete()
+                    }
                 }
                 .buttonStyle(.bordered)
                 .font(.caption)
@@ -569,4 +632,5 @@ struct EditReminderView: View {
 #Preview {
     SmartRemindersView()
         .environmentObject(SmartReminderManager())
+        .environmentObject(AIReminderManager())
 } 

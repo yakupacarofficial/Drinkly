@@ -381,7 +381,7 @@ class AchievementManager: ObservableObject {
                 id: "hundred_streak",
                 title: "Century Club",
                 description: "Maintain a 100-day hydration streak",
-                iconName: "100.circle.fill",
+                iconName: "star.circle.fill",
                 category: .streak,
                 requirement: .streak(days: 100),
                 reward: .theme("Golden")

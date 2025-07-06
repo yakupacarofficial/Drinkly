@@ -112,6 +112,13 @@ class SmartReminderManager: ObservableObject {
             
             // Check if we should suggest changes
             checkForSuggestions(updatedReminder)
+            
+            // Notify AI system about skipped reminder
+            NotificationCenter.default.post(
+                name: .reminderSkipped,
+                object: nil,
+                userInfo: ["reminder": reminder]
+            )
         }
     }
     
@@ -129,6 +136,13 @@ class SmartReminderManager: ObservableObject {
             )
             reminders[index] = updatedReminder
             saveReminders()
+            
+            // Notify AI system about completed reminder
+            NotificationCenter.default.post(
+                name: .reminderCompleted,
+                object: nil,
+                userInfo: ["reminder": reminder]
+            )
         }
     }
     
@@ -144,6 +158,13 @@ class SmartReminderManager: ObservableObject {
     func applySuggestion(_ suggestion: SmartReminder) {
         addReminder(suggestion)
         suggestedReminders.removeAll { $0.id == suggestion.id }
+        
+        // Notify AI system about accepted suggestion
+        NotificationCenter.default.post(
+            name: .suggestionAccepted,
+            object: nil,
+            userInfo: ["suggestion": suggestion]
+        )
     }
     
     /// Get reminders for a specific time range
@@ -282,12 +303,12 @@ class SmartReminderManager: ObservableObject {
         // This would analyze actual drinking data from HydrationHistory
         // For now, return default patterns
         return [
-            DrinkingPattern(timeSlot: "Morning", frequency: 0.8, averageAmount: 0.3),
-            DrinkingPattern(timeSlot: "Mid-morning", frequency: 0.6, averageAmount: 0.25),
-            DrinkingPattern(timeSlot: "Lunch", frequency: 0.9, averageAmount: 0.4),
-            DrinkingPattern(timeSlot: "Afternoon", frequency: 0.7, averageAmount: 0.3),
-            DrinkingPattern(timeSlot: "Evening", frequency: 0.5, averageAmount: 0.25),
-            DrinkingPattern(timeSlot: "Night", frequency: 0.2, averageAmount: 0.1)
+            DrinkingPattern(timeSlot: "Morning", frequency: 0.8, averageAmount: 0.3, acceptanceRate: 1.0),
+            DrinkingPattern(timeSlot: "Mid-morning", frequency: 0.6, averageAmount: 0.25, acceptanceRate: 0.8),
+            DrinkingPattern(timeSlot: "Lunch", frequency: 0.9, averageAmount: 0.4, acceptanceRate: 1.0),
+            DrinkingPattern(timeSlot: "Afternoon", frequency: 0.7, averageAmount: 0.3, acceptanceRate: 0.9),
+            DrinkingPattern(timeSlot: "Evening", frequency: 0.5, averageAmount: 0.25, acceptanceRate: 0.7),
+            DrinkingPattern(timeSlot: "Night", frequency: 0.2, averageAmount: 0.1, acceptanceRate: 0.3)
         ]
     }
     
@@ -337,12 +358,11 @@ class SmartReminderManager: ObservableObject {
     }
 }
 
-// MARK: - Supporting Models
-
-struct DrinkingPattern {
-    let timeSlot: String
-    let frequency: Double // 0.0 to 1.0
-    let averageAmount: Double // in liters
+// MARK: - Notification Names
+extension Notification.Name {
+    static let reminderSkipped = Notification.Name("reminderSkipped")
+    static let reminderCompleted = Notification.Name("reminderCompleted")
+    static let suggestionAccepted = Notification.Name("suggestionAccepted")
 }
 
 // MARK: - Smart Reminder Suggestion View

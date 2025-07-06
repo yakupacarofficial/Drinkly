@@ -21,6 +21,7 @@ struct MainView: View {
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
     @EnvironmentObject private var profilePictureManager: ProfilePictureManager
     @EnvironmentObject private var aiWaterPredictor: AIWaterPredictor
+    @EnvironmentObject private var aiReminderManager: AIReminderManager
     
     // MARK: - State Properties
     @State private var selectedTab: Tab = .home
@@ -41,6 +42,17 @@ struct MainView: View {
         TabView(selection: $selectedTab) {
             // Home Tab
             homeView
+                .environmentObject(waterManager)
+                .environmentObject(locationManager)
+                .environmentObject(weatherManager)
+                .environmentObject(notificationManager)
+                .environmentObject(performanceMonitor)
+                .environmentObject(hydrationHistory)
+                .environmentObject(achievementManager)
+                .environmentObject(smartReminderManager)
+                .environmentObject(profilePictureManager)
+                .environmentObject(aiWaterPredictor)
+                .environmentObject(aiReminderManager)
                 .tabItem {
                     Image(systemName: "house.fill")
                     Text("Home")
@@ -49,6 +61,17 @@ struct MainView: View {
             
             // Statistics Tab
             StatisticsView()
+                .environmentObject(waterManager)
+                .environmentObject(locationManager)
+                .environmentObject(weatherManager)
+                .environmentObject(notificationManager)
+                .environmentObject(performanceMonitor)
+                .environmentObject(hydrationHistory)
+                .environmentObject(achievementManager)
+                .environmentObject(smartReminderManager)
+                .environmentObject(profilePictureManager)
+                .environmentObject(aiWaterPredictor)
+                .environmentObject(aiReminderManager)
                 .tabItem {
                     Image(systemName: "chart.bar.fill")
                     Text("Statistics")
@@ -57,6 +80,17 @@ struct MainView: View {
             
             // Achievements Tab
             AchievementsView()
+                .environmentObject(waterManager)
+                .environmentObject(locationManager)
+                .environmentObject(weatherManager)
+                .environmentObject(notificationManager)
+                .environmentObject(performanceMonitor)
+                .environmentObject(hydrationHistory)
+                .environmentObject(achievementManager)
+                .environmentObject(smartReminderManager)
+                .environmentObject(profilePictureManager)
+                .environmentObject(aiWaterPredictor)
+                .environmentObject(aiReminderManager)
                 .tabItem {
                     Image(systemName: "trophy.fill")
                     Text("Achievements")
@@ -65,6 +99,17 @@ struct MainView: View {
             
             // Smart Reminders Tab
             SmartRemindersView()
+                .environmentObject(waterManager)
+                .environmentObject(locationManager)
+                .environmentObject(weatherManager)
+                .environmentObject(notificationManager)
+                .environmentObject(performanceMonitor)
+                .environmentObject(hydrationHistory)
+                .environmentObject(achievementManager)
+                .environmentObject(smartReminderManager)
+                .environmentObject(profilePictureManager)
+                .environmentObject(aiWaterPredictor)
+                .environmentObject(aiReminderManager)
                 .tabItem {
                     Image(systemName: "bell.fill")
                     Text("Reminders")
@@ -77,9 +122,31 @@ struct MainView: View {
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
+                .environmentObject(waterManager)
+                .environmentObject(locationManager)
+                .environmentObject(weatherManager)
+                .environmentObject(notificationManager)
+                .environmentObject(performanceMonitor)
+                .environmentObject(hydrationHistory)
+                .environmentObject(achievementManager)
+                .environmentObject(smartReminderManager)
+                .environmentObject(profilePictureManager)
+                .environmentObject(aiWaterPredictor)
+                .environmentObject(aiReminderManager)
         }
         .sheet(isPresented: $showingProfile) {
             ProfileView(existingProfile: waterManager.userProfile)
+                .environmentObject(waterManager)
+                .environmentObject(locationManager)
+                .environmentObject(weatherManager)
+                .environmentObject(notificationManager)
+                .environmentObject(performanceMonitor)
+                .environmentObject(hydrationHistory)
+                .environmentObject(achievementManager)
+                .environmentObject(smartReminderManager)
+                .environmentObject(profilePictureManager)
+                .environmentObject(aiWaterPredictor)
+                .environmentObject(aiReminderManager)
         }
         .overlay(
             Group {
@@ -187,7 +254,7 @@ struct MainView: View {
                         .foregroundColor(.secondary)
                     
                     HStack {
-                        Image(systemName: waterManager.smartGoalEnabled ? "brain.head.profile" : "brain.head.profile.slash")
+                        Image(systemName: waterManager.smartGoalEnabled ? "brain.head.profile" : "brain.head.profile")
                             .foregroundColor(waterManager.smartGoalEnabled ? .blue : .gray)
                         Text(waterManager.smartGoalEnabled ? "Active" : "Disabled")
                             .font(.caption)
@@ -781,4 +848,5 @@ struct ReminderPreviewRow: View {
         .environmentObject(SmartReminderManager())
         .environmentObject(ProfilePictureManager())
         .environmentObject(AIWaterPredictor())
+        .environmentObject(AIReminderManager())
 } 
