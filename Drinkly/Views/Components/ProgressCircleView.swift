@@ -13,6 +13,7 @@ struct ProgressCircleView: View {
     // MARK: - Environment Objects
     @EnvironmentObject private var waterManager: WaterManager
     @EnvironmentObject private var locationManager: LocationManager
+    @EnvironmentObject private var themeManager: ThemeManager
     
     // MARK: - Private Properties
     @State private var cachedProgressPercentage: Double = 0.0
@@ -149,5 +150,6 @@ struct ProgressCircleView: View {
         .environmentObject(HydrationHistory())
         .environmentObject(AchievementManager())
         .environmentObject(SmartReminderManager())
+        .environmentObject(ThemeManager())
         .padding()
 } 

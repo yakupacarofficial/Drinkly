@@ -11,6 +11,7 @@ struct SmartRemindersView: View {
     @ObservedObject private var smartReminderManager: SmartReminderManager
     @EnvironmentObject private var aiReminderManager: AIReminderManager
     @EnvironmentObject private var waterManager: WaterManager
+    @EnvironmentObject private var themeManager: ThemeManager
     
     init(smartReminderManager: SmartReminderManager) {
         self.smartReminderManager = smartReminderManager
@@ -64,11 +65,13 @@ struct SmartRemindersView: View {
             .sheet(isPresented: $showingAddReminder) {
                 AddReminderView()
                     .environmentObject(smartReminderManager)
+                    .environmentObject(themeManager)
             }
             .sheet(isPresented: $showingEditReminder) {
                 if let reminder = selectedReminder {
                     EditReminderView(reminder: reminder)
                         .environmentObject(smartReminderManager)
+                        .environmentObject(themeManager)
                 }
             }
             .alert("Delete Reminder", isPresented: $showingDeleteConfirmation) {
@@ -311,6 +314,10 @@ struct SmartRemindersView: View {
         }
     }
 }
+
+
+
+
 
 // MARK: - Smart Feature Card
 struct SmartFeatureCard: View {
@@ -593,6 +600,7 @@ struct AILearningStatusCard: View {
 struct AddReminderView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
+    @EnvironmentObject private var themeManager: ThemeManager
     @State private var selectedTime = Date()
     @State private var message = "Time to hydrate! 💧"
     @State private var isAdaptive = true
@@ -691,6 +699,7 @@ struct AddReminderView: View {
 struct EditReminderView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
+    @EnvironmentObject private var themeManager: ThemeManager
     let reminder: SmartReminder
     
     @State private var selectedTime: Date
@@ -801,79 +810,10 @@ struct EditReminderView: View {
     }
 }
 
-// MARK: - Smart Reminder Suggestion View
-struct SmartReminderSuggestionView: View {
-    let suggestion: SmartReminder
-    let onAccept: () -> Void
-    let onDecline: () -> Void
-    
-    var body: some View {
-        VStack(spacing: 16) {
-            HStack {
-                Image(systemName: "lightbulb.fill")
-                    .font(.title2)
-                    .foregroundColor(.yellow)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Smart Suggestion")
-                        .font(.headline)
-                        .foregroundColor(.primary)
-                    
-                    Text("Based on your patterns")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                
-                Spacer()
-            }
-            
-            VStack(spacing: 12) {
-                HStack {
-                    Image(systemName: "clock.fill")
-                        .foregroundColor(.orange)
-                        .font(.system(size: 16))
-                    
-                    Text(suggestion.time.formatted(date: .omitted, time: .shortened))
-                        .font(.title2)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                }
-                
-                HStack {
-                    Image(systemName: "drop.fill")
-                        .foregroundColor(.blue)
-                        .font(.system(size: 16))
-                    
-                    Text(suggestion.message)
-                        .font(.body)
-                        .foregroundColor(.primary)
-                    
-                    Spacer()
-                }
-            }
-            
-            HStack(spacing: 12) {
-                Button("Decline") {
-                    onDecline()
-                }
-                .buttonStyle(.bordered)
-                
-                Button("Accept") {
-                    onAccept()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(20)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(radius: 10)
-    }
-}
+
 
 #Preview {
     SmartRemindersView(smartReminderManager: SmartReminderManager())
         .environmentObject(AIReminderManager())
+        .environmentObject(ThemeManager())
 } 

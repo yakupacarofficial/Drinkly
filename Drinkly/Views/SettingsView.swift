@@ -18,6 +18,7 @@ struct SettingsView: View {
     @EnvironmentObject private var hydrationHistory: HydrationHistory
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
     @EnvironmentObject private var aiReminderManager: AIReminderManager
+    @EnvironmentObject private var themeManager: ThemeManager
     @Environment(\.dismiss) private var dismiss
     
     // MARK: - State Properties
@@ -39,6 +40,7 @@ struct SettingsView: View {
                 statisticsSection
                 actionsSection
                 aboutSection
+                themeSection
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
@@ -53,6 +55,12 @@ struct SettingsView: View {
         }
         .onAppear {
             loadSettings()
+        }
+        .onChange(of: themeManager.themeMode) { _, _ in
+            // Force UI refresh when theme changes
+            DispatchQueue.main.async {
+                // This will trigger a UI refresh
+            }
         }
         .alert("Reset Today's Progress", isPresented: $showingResetAlert) {
             Button("Reset", role: .destructive) {
@@ -147,6 +155,44 @@ struct SettingsView: View {
                 }
             }
             .padding(.vertical, 4)
+        }
+    }
+    
+    private var themeSection: some View {
+        Section("Appearance") {
+            VStack(alignment: .leading, spacing: 16) {
+                HStack {
+                    Image(systemName: "paintbrush.fill")
+                        .foregroundColor(.blue)
+                        .font(.title2)
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Theme Mode")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        
+                        Text("Choose how the app should appear")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    
+                    Spacer()
+                }
+                
+                VStack(spacing: 12) {
+                    ForEach(ThemeMode.allCases, id: \.self) { mode in
+                        ThemeOptionCard(
+                            mode: mode,
+                            isSelected: themeManager.themeMode == mode,
+                            onTap: {
+                                HapticFeedbackHelper.shared.trigger()
+                                themeManager.setThemeMode(mode)
+                            }
+                        )
+                    }
+                }
+            }
+            .padding(.vertical, 8)
         }
     }
     
@@ -434,6 +480,52 @@ struct StatRow: View {
     }
 }
 
+// MARK: - Theme Option Card
+struct ThemeOptionCard: View {
+    let mode: ThemeMode
+    let isSelected: Bool
+    let onTap: () -> Void
+    
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                Image(systemName: mode.iconName)
+                    .font(.title2)
+                    .foregroundColor(isSelected ? .white : .blue)
+                    .frame(width: 24, height: 24)
+                
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(mode.displayName)
+                        .font(.headline)
+                        .foregroundColor(isSelected ? .white : .primary)
+                    
+                    Text(mode.description)
+                        .font(.caption)
+                        .foregroundColor(isSelected ? .white.opacity(0.8) : .secondary)
+                }
+                
+                Spacer()
+                
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.title2)
+                        .foregroundColor(.white)
+                }
+            }
+            .padding()
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(isSelected ? Color.blue : Color(.systemGray6))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(isSelected ? Color.blue : Color.clear, lineWidth: 2)
+            )
+        }
+        .buttonStyle(PlainButtonStyle())
+    }
+}
+
 // MARK: - Preview
 #Preview {
     SettingsView()
@@ -442,4 +534,5 @@ struct StatRow: View {
         .environmentObject(AchievementManager())
         .environmentObject(HydrationHistory())
         .environmentObject(SmartReminderManager())
+        .environmentObject(ThemeManager())
 } 

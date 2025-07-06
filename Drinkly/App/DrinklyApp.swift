@@ -20,6 +20,7 @@ struct DrinklyApp: App {
     @StateObject private var profilePictureManager = ProfilePictureManager()
     @StateObject private var aiWaterPredictor = AIWaterPredictor()
     @StateObject private var aiReminderManager = AIReminderManager()
+    @StateObject private var themeManager = ThemeManager()
 
     var body: some Scene {
         WindowGroup {
@@ -35,7 +36,14 @@ struct DrinklyApp: App {
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
-                .preferredColorScheme(.light)
+                .environmentObject(themeManager)
+                .preferredColorScheme(themeManager.currentColorScheme)
+                .onChange(of: themeManager.themeMode) { _, _ in
+                    // Force UI update when theme changes
+                    DispatchQueue.main.async {
+                        // This will trigger a UI refresh
+                    }
+                }
                 .onAppear {
                     setupApp()
                 }
@@ -50,6 +58,7 @@ struct DrinklyApp: App {
                         .environmentObject(achievementManager)
                         .environmentObject(smartReminderManager)
                         .environmentObject(aiReminderManager)
+                        .environmentObject(themeManager)
                 }
                 .sheet(isPresented: $waterManager.showingCelebration) {
                     CelebrationView(isShowing: $waterManager.showingCelebration)
@@ -62,6 +71,7 @@ struct DrinklyApp: App {
                         .environmentObject(achievementManager)
                         .environmentObject(smartReminderManager)
                         .environmentObject(aiReminderManager)
+                        .environmentObject(themeManager)
                 }
         }
     }

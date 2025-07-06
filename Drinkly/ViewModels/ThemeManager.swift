@@ -20,10 +20,12 @@ class ThemeManager: ObservableObject {
     @Published var cardBackgroundColor: Color = Color(.secondarySystemBackground)
     @Published var textColor: Color = Color(.label)
     
+    // MARK: - App Storage for Theme Selection
+    @AppStorage("drinkly_theme_mode") var themeMode: ThemeMode = .system
+    
     // MARK: - Private Properties
     private let userDefaults = UserDefaults.standard
     private let themeKey = "drinkly_app_theme"
-    private let colorSchemeKey = "drinkly_color_scheme"
     private let accentColorKey = "drinkly_accent_color"
     
     // MARK: - Initialization
@@ -41,11 +43,12 @@ class ThemeManager: ObservableObject {
         saveThemeSettings()
     }
     
-    /// Set color scheme (light, dark, or automatic)
-    func setColorScheme(_ scheme: ColorScheme?) {
-        colorScheme = scheme
+    /// Set theme mode (system, light, dark)
+    func setThemeMode(_ mode: ThemeMode) {
+        themeMode = mode
+        updateColorScheme()
         updateColors()
-        saveThemeSettings()
+        objectWillChange.send()
     }
     
     /// Set accent color
@@ -53,6 +56,18 @@ class ThemeManager: ObservableObject {
         accentColor = color
         updateColors()
         saveThemeSettings()
+    }
+    
+    /// Get current color scheme based on theme mode
+    var currentColorScheme: ColorScheme? {
+        switch themeMode {
+        case .system:
+            return nil // System will handle it automatically
+        case .light:
+            return .light
+        case .dark:
+            return .dark
+        }
     }
     
     /// Get color for specific usage
@@ -119,14 +134,7 @@ class ThemeManager: ObservableObject {
            let theme = try? JSONDecoder().decode(AppTheme.self, from: themeData) {
             currentTheme = theme
         }
-        // Load color scheme
-        if let schemeString = userDefaults.string(forKey: colorSchemeKey) {
-            switch schemeString {
-            case "light": colorScheme = .light
-            case "dark": colorScheme = .dark
-            default: colorScheme = nil
-            }
-        }
+        
         // Load accent color
         if let colorData = userDefaults.data(forKey: accentColorKey),
            let colorComponents = try? JSONDecoder().decode([Double].self, from: colorData),
@@ -138,6 +146,8 @@ class ThemeManager: ObservableObject {
                 opacity: colorComponents[3]
             )
         }
+        
+        updateColorScheme()
     }
     
     private func saveThemeSettings() {
@@ -145,21 +155,16 @@ class ThemeManager: ObservableObject {
         if let themeData = try? JSONEncoder().encode(currentTheme) {
             userDefaults.set(themeData, forKey: themeKey)
         }
-        // Save color scheme
-        if let scheme = colorScheme {
-            switch scheme {
-            case .light: userDefaults.set("light", forKey: colorSchemeKey)
-            case .dark: userDefaults.set("dark", forKey: colorSchemeKey)
-            @unknown default: userDefaults.removeObject(forKey: colorSchemeKey)
-            }
-        } else {
-            userDefaults.set("automatic", forKey: colorSchemeKey)
-        }
+        
         // Save accent color
         let colorComponents = accentColor.components
         if let colorData = try? JSONEncoder().encode(colorComponents) {
             userDefaults.set(colorData, forKey: accentColorKey)
         }
+    }
+    
+    private func updateColorScheme() {
+        colorScheme = currentColorScheme
     }
     
     private func updateColors() {
@@ -203,6 +208,45 @@ class ThemeManager: ObservableObject {
 }
 
 // MARK: - Supporting Models
+
+enum ThemeMode: String, CaseIterable, Codable {
+    case system = "system"
+    case light = "light"
+    case dark = "dark"
+    
+    var displayName: String {
+        switch self {
+        case .system:
+            return "System Default"
+        case .light:
+            return "Light Mode"
+        case .dark:
+            return "Dark Mode"
+        }
+    }
+    
+    var iconName: String {
+        switch self {
+        case .system:
+            return "gear"
+        case .light:
+            return "sun.max.fill"
+        case .dark:
+            return "moon.fill"
+        }
+    }
+    
+    var description: String {
+        switch self {
+        case .system:
+            return "Follows your device's appearance setting"
+        case .light:
+            return "Always use light appearance"
+        case .dark:
+            return "Always use dark appearance"
+        }
+    }
+}
 
 enum AppTheme: String, CaseIterable, Codable {
     case `default` = "default"

@@ -10,6 +10,7 @@ import Charts
 
 struct StatisticsView: View {
     @EnvironmentObject private var hydrationHistory: HydrationHistory
+    @EnvironmentObject private var themeManager: ThemeManager
     @State private var selectedTimeRange: TimeRange = .daily
     @State private var showingDatePicker = false
     @State private var selectedDate = Date()
@@ -715,4 +716,5 @@ struct YearlyChartData: Identifiable {
         .environmentObject(HydrationHistory())
         .environmentObject(AchievementManager())
         .environmentObject(SmartReminderManager())
+        .environmentObject(ThemeManager())
 }

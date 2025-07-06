@@ -22,6 +22,7 @@ struct MainView: View {
     @EnvironmentObject private var profilePictureManager: ProfilePictureManager
     @EnvironmentObject private var aiWaterPredictor: AIWaterPredictor
     @EnvironmentObject private var aiReminderManager: AIReminderManager
+    @EnvironmentObject private var themeManager: ThemeManager
     
     // MARK: - State Properties
     @State private var selectedTab: Tab = .home
@@ -53,6 +54,7 @@ struct MainView: View {
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
+                .environmentObject(themeManager)
                 .tabItem {
                     Image(systemName: "house.fill")
                     Text("Home")
@@ -72,6 +74,7 @@ struct MainView: View {
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
+                .environmentObject(themeManager)
                 .tabItem {
                     Image(systemName: "chart.bar.fill")
                     Text("Statistics")
@@ -91,6 +94,7 @@ struct MainView: View {
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
+                .environmentObject(themeManager)
                 .tabItem {
                     Image(systemName: "trophy.fill")
                     Text("Achievements")
@@ -109,6 +113,7 @@ struct MainView: View {
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
+                .environmentObject(themeManager)
                 .tabItem {
                     Image(systemName: "bell.fill")
                     Text("Reminders")
@@ -132,6 +137,7 @@ struct MainView: View {
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
+                .environmentObject(themeManager)
         }
         .sheet(isPresented: $showingProfile) {
             ProfileView(existingProfile: waterManager.userProfile)
@@ -146,6 +152,7 @@ struct MainView: View {
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)
+                .environmentObject(themeManager)
         }
         .overlay(
             Group {
@@ -850,4 +857,5 @@ struct ReminderPreviewRow: View {
         .environmentObject(ProfilePictureManager())
         .environmentObject(AIWaterPredictor())
         .environmentObject(AIReminderManager())
+        .environmentObject(ThemeManager())
 } 

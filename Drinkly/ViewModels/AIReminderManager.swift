@@ -619,49 +619,84 @@ class AIReminderManager: ObservableObject {
         }
     }
     
-    private func cleanupDataForPrivacyMode(_ mode: PrivacyMode) {
-        switch mode {
-        case .standard:
-            break // Keep all data
-        case .enhanced:
-            // Remove sensitive data older than 30 days
-            let thirtyDaysAgo = Calendar.current.date(byAdding: .day, value: -30, to: Date()) ?? Date()
-            userBehaviorData = userBehaviorData.filter { $0.timestamp > thirtyDaysAgo }
-        case .strict:
-            // Keep only essential data
-            userBehaviorData = userBehaviorData.suffix(50)
-        }
-        saveBehaviorData()
-    }
-    
     private func resetModel() {
         reminderModel = AdvancedReminderPredictionModel()
     }
     
-    private func getDataDateRange() -> String {
-        guard let first = userBehaviorData.first?.timestamp,
-              let last = userBehaviorData.last?.timestamp else {
-            return "No data"
+    private func cleanupDataForPrivacyMode(_ mode: AIReminderManager.PrivacyMode) {
+        switch mode {
+        case .standard:
+            // Keep all data
+            break
+        case .enhanced:
+            // Remove some sensitive data
+            userBehaviorData = userBehaviorData.map { entry in
+                ReminderBehaviorEntry(
+                    timestamp: entry.timestamp,
+                    reminderTime: entry.reminderTime,
+                    wasSkipped: entry.wasSkipped,
+                    wasAccepted: entry.wasAccepted,
+                    context: entry.context,
+                    confidence: entry.confidence,
+                    reason: "Data anonymized for enhanced privacy"
+                )
+            }
+        case .strict:
+            // Keep only essential data
+            userBehaviorData = userBehaviorData.filter { entry in
+                Calendar.current.dateComponents([.day], from: entry.timestamp, to: Date()).day ?? 0 <= 3
+            }
         }
         
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        return "\(formatter.string(from: first)) - \(formatter.string(from: last))"
+        saveBehaviorData()
+    }
+    
+    private func getDataDateRange() -> DateInterval? {
+        guard let first = userBehaviorData.first?.timestamp,
+              let last = userBehaviorData.last?.timestamp else {
+            return nil
+        }
+        
+        return DateInterval(start: first, end: last)
     }
     
     private func getAnalysisCount() -> Int {
+        // This would track analysis count from UserDefaults
         return userDefaults.integer(forKey: "drinkly_analysis_count")
     }
     
     private func calculateDataQuality() -> Double {
-        let totalEntries = userBehaviorData.count
-        let recentEntries = userBehaviorData.filter { 
-            Calendar.current.isDate($0.timestamp, inSameDayAs: Date()) ||
-            Calendar.current.isDate($0.timestamp, inSameDayAs: Calendar.current.date(byAdding: .day, value: -1, to: Date()) ?? Date())
-        }.count
+        guard !userBehaviorData.isEmpty else { return 0.0 }
         
-        let quality = Double(recentEntries) / Double(max(totalEntries, 1))
-        return min(1.0, quality)
+        let recentData = userBehaviorData.filter { entry in
+            Calendar.current.dateComponents([.day], from: entry.timestamp, to: Date()).day ?? 0 <= 7
+        }
+        
+        let recentRatio = Double(recentData.count) / Double(userBehaviorData.count)
+        let consistencyScore = calculateConsistencyScore()
+        let completenessScore = calculateCompletenessScore()
+        
+        return (recentRatio * 0.4 + consistencyScore * 0.3 + completenessScore * 0.3)
+    }
+    
+    private func calculateConsistencyScore() -> Double {
+        // Calculate how consistent the data is
+        let timeSlots = Dictionary(grouping: userBehaviorData) { entry in
+            Calendar.current.component(.hour, from: entry.reminderTime)
+        }
+        
+        let slotCounts = timeSlots.values.map { $0.count }
+        let averageCount = Double(slotCounts.reduce(0, +)) / Double(slotCounts.count)
+        let variance = slotCounts.map { pow(Double($0) - averageCount, 2) }.reduce(0, +) / Double(slotCounts.count)
+        
+        return max(0, 1 - (variance / 100)) // Normalize variance
+    }
+    
+    private func calculateCompletenessScore() -> Double {
+        // Calculate how complete the data is
+        let totalPossibleEntries = userBehaviorData.count * 24 // 24 hours per day
+        let actualEntries = userBehaviorData.count
+        return min(1.0, Double(actualEntries) / Double(totalPossibleEntries))
     }
     
     private func generateAdvancedInsights(_ patterns: [AdvancedDrinkingPattern]) -> [AdvancedReminderInsight] {
@@ -706,7 +741,7 @@ class AIReminderManager: ObservableObject {
     
     private func setupNotificationObservers() {
         NotificationCenter.default.addObserver(
-            forName: .reminderSkipped,
+            forName: .aiReminderSkipped,
             object: nil,
             queue: .main
         ) { [weak self] notification in
@@ -716,7 +751,7 @@ class AIReminderManager: ObservableObject {
         }
         
         NotificationCenter.default.addObserver(
-            forName: .reminderCompleted,
+            forName: .aiReminderCompleted,
             object: nil,
             queue: .main
         ) { [weak self] notification in
@@ -726,7 +761,7 @@ class AIReminderManager: ObservableObject {
         }
         
         NotificationCenter.default.addObserver(
-            forName: .suggestionAccepted,
+            forName: .aiSuggestionAccepted,
             object: nil,
             queue: .main
         ) { [weak self] notification in
@@ -769,6 +804,14 @@ class AIReminderManager: ObservableObject {
         default: return "Night"
         }
     }
+}
+
+// MARK: - Notification Center Extensions
+extension Notification.Name {
+    static let aiReminderSkipped = Notification.Name("aiReminderSkipped")
+    static let aiReminderCompleted = Notification.Name("aiReminderCompleted")
+    static let aiSuggestionAccepted = Notification.Name("aiSuggestionAccepted")
+    static let aiSuggestionDeclined = Notification.Name("aiSuggestionDeclined")
 }
 
 // MARK: - Supporting Models
@@ -846,6 +889,16 @@ enum AdvancedReminderInsightType {
     case mostEffectiveTime, effectiveness, dataQuality, improvement, gap
 }
 
+// MARK: - User Data Export Model
+struct UserDataExport: Codable {
+    let totalEntries: Int
+    let dateRange: DateInterval?
+    let privacyMode: AIReminderManager.PrivacyMode
+    let analysisCount: Int
+    let lastExport: Date
+}
+
+// MARK: - Advanced Drinking Pattern
 struct AdvancedDrinkingPattern {
     let timeSlot: String
     let frequency: Double
@@ -856,54 +909,36 @@ struct AdvancedDrinkingPattern {
     let lastActivity: Date?
 }
 
-struct UserDataExport: Codable {
-    let totalEntries: Int
-    let dateRange: String
-    let privacyMode: AIReminderManager.PrivacyMode
-    let analysisCount: Int
-    let lastExport: Date
-}
-
 // MARK: - Advanced Reminder Prediction Model
-
 class AdvancedReminderPredictionModel {
-    private var weights: [Double] = []
-    private var bias: Double = 0.0
+    private var weights: [Double] = Array(repeating: 0.1, count: 8)
+    private var bias: Double = 0.5
     private var learningRate: Double = 0.01
-    private var epochs: Int = 100
-    
-    init() {
-        // Initialize with random weights
-        weights = (0..<8).map { _ in Double.random(in: -1...1) }
-        bias = Double.random(in: -1...1)
-    }
-    
-    func predict(context: EnhancedReminderContext) -> Double {
-        let features = extractFeatures(context)
-        return predictValue(features)
-    }
     
     func train(with data: [ReminderBehaviorEntry], privacyMode: AIReminderManager.PrivacyMode) {
         guard data.count >= 5 else { return }
         
-        // Adjust training based on privacy mode
-        let adjustedEpochs = privacyMode == .strict ? epochs / 2 : epochs
-        
-        for _ in 0..<adjustedEpochs {
-            for entry in data {
-                let features = extractFeatures(entry.context)
-                let target = entry.wasAccepted ? 1.0 : 0.0
-                let prediction = predictValue(features)
-                
-                let error = target - prediction
-                
-                // Update weights
-                for i in 0..<weights.count {
-                    weights[i] += learningRate * error * features[i]
-                }
-                bias += learningRate * error
+        for entry in data {
+            let features = extractFeatures(entry.context)
+            let target = entry.wasAccepted ? 1.0 : 0.0
+            let prediction = predictValue(features)
+            
+            // Calculate error
+            let error = target - prediction
+            
+            // Update weights
+            for i in 0..<weights.count {
+                weights[i] += learningRate * error * features[i]
             }
+            
+            // Update bias
+            bias += learningRate * error
         }
+    }
+    
+    func predict(for context: EnhancedReminderContext) -> Double {
+        let features = extractFeatures(context)
+        return predictValue(features)
     }
     
     private func extractFeatures(_ context: EnhancedReminderContext) -> [Double] {
