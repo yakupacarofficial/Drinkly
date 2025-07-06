@@ -7,9 +7,9 @@
 
 import SwiftUI
 
-/// Progress circle view showing water or total liquid intake progress
+/// Progress circle view showing water, other liquids, or total liquid intake progress
 struct ProgressCircleView: View {
-    enum Mode { case water, total }
+    enum Mode { case water, other, total }
     let mode: Mode
     
     @EnvironmentObject private var liquidManager: LiquidManager
@@ -23,7 +23,9 @@ struct ProgressCircleView: View {
     var body: some View {
         VStack(spacing: 20) {
             progressContainer
-            progressText
+            if mode == .water {
+                progressText
+            }
         }
         .onAppear { updateCache() }
         .onChange(of: progressValue) { _, _ in updateCache() }
@@ -45,9 +47,18 @@ struct ProgressCircleView: View {
     }
     private var backgroundCircle: some View {
         Circle()
-            .stroke(mode == .water ? Color.blue.opacity(0.2) : Color.green.opacity(0.2), lineWidth: Constants.UI.progressStrokeWidth)
+            .stroke(backgroundColor, lineWidth: Constants.UI.progressStrokeWidth)
             .frame(width: Constants.UI.progressCircleSize, height: Constants.UI.progressCircleSize)
     }
+    
+    private var backgroundColor: Color {
+        switch mode {
+        case .water: return Color.blue.opacity(0.2)
+        case .other: return Color.orange.opacity(0.2)
+        case .total: return Color.green.opacity(0.2)
+        }
+    }
+    
     private var progressCircle: some View {
         Circle()
             .trim(from: 0, to: cachedProgress)
@@ -63,21 +74,38 @@ struct ProgressCircleView: View {
             .rotationEffect(.degrees(-90))
             .animation(.easeInOut(duration: Constants.AnimationDuration.slow), value: cachedProgress)
     }
+    
     private var waterDropIcon: some View {
         VStack(spacing: 8) {
-            Image(systemName: mode == .water ? "drop.fill" : "drop.triangle.fill")
+            Image(systemName: iconName)
                 .font(.system(size: 40))
-                .foregroundColor(mode == .water ? .blue : .green)
+                .foregroundColor(iconColor)
                 .accessibilityHidden(true)
             VStack(spacing: 4) {
                 Text("\(String(format: "%.1f", currentAmount / 1000))L")
                     .font(.title2)
                     .fontWeight(.bold)
-                    .foregroundColor(mode == .water ? .blue : .green)
+                    .foregroundColor(iconColor)
                 Text("of \(String(format: "%.1f", dailyGoal / 1000))L")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
+        }
+    }
+    
+    private var iconName: String {
+        switch mode {
+        case .water: return "drop.fill"
+        case .other: return "cup.and.saucer.fill"
+        case .total: return "drop.triangle.fill"
+        }
+    }
+    
+    private var iconColor: Color {
+        switch mode {
+        case .water: return .blue
+        case .other: return .orange
+        case .total: return .green
         }
     }
     private var progressText: some View {
@@ -103,25 +131,34 @@ struct ProgressCircleView: View {
     private var progressValue: Double {
         switch mode {
         case .water: return min(1.0, liquidManager.totalWater / dailyGoal)
+        case .other: return min(1.0, liquidManager.totalOtherLiquids / dailyGoal)
         case .total: return min(1.0, liquidManager.totalLiquids / dailyGoal)
         }
     }
     private var currentAmount: Double {
         switch mode {
         case .water: return liquidManager.totalWater
+        case .other: return liquidManager.totalOtherLiquids
         case .total: return liquidManager.totalLiquids
         }
     }
     private var dailyGoal: Double { liquidManager.dailyGoal }
     private var progressColors: [Color] {
         let p = progressValue
-        if mode == .water {
+        switch mode {
+        case .water:
             switch p {
             case 0..<0.33: return [.gray, .gray.opacity(0.7)]
             case 0.33..<0.67: return [.blue, .blue.opacity(0.7)]
             default: return [.green, .green.opacity(0.7)]
             }
-        } else {
+        case .other:
+            switch p {
+            case 0..<0.33: return [.gray, .gray.opacity(0.7)]
+            case 0.33..<0.67: return [.orange, .orange.opacity(0.7)]
+            default: return [.red, .red.opacity(0.7)]
+            }
+        case .total:
             switch p {
             case 0..<0.33: return [.gray, .gray.opacity(0.7)]
             case 0.33..<0.67: return [.green, .green.opacity(0.7)]

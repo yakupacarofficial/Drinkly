@@ -43,7 +43,8 @@ struct MainView: View {
     }
     
     enum ProgressMode: String, CaseIterable {
-        case water = "Water Only"
+        case water = "Water"
+        case other = "Other Liquids"
         case total = "Total Liquid"
         
         var displayName: String { rawValue }
@@ -185,6 +186,10 @@ struct MainView: View {
                 .environmentObject(aiReminderManager)
                 .environmentObject(themeManager)
         }
+        .sheet(isPresented: $liquidManager.showingAddLiquidSheet) {
+            AddLiquidView()
+                .environmentObject(liquidManager)
+        }
         .overlay(
             Group {
                 if achievementManager.showingUnlockAnimation,
@@ -238,9 +243,6 @@ struct MainView: View {
                         // Quick actions
                         quickActionsSection
                         
-                        // Add Another Liquid button
-                        addAnotherLiquidButton
-                        
                         // Today's summary
                         todaySummarySection
                         
@@ -281,44 +283,28 @@ struct MainView: View {
     
     // MARK: - Progress Circle Switcher
     private var progressCircleSwitcher: some View {
-        TabView(selection: $progressMode) {
-            ProgressCircleView(mode: .water)
-                .environmentObject(liquidManager)
-                .environmentObject(locationManager)
-                .environmentObject(themeManager)
-                .tag(ProgressMode.water)
-            ProgressCircleView(mode: .total)
-                .environmentObject(liquidManager)
-                .environmentObject(locationManager)
-                .environmentObject(themeManager)
-                .tag(ProgressMode.total)
-        }
-        .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
-        .frame(height: 320)
-        .padding(.bottom, 8)
-    }
-    
-    // MARK: - Add Another Liquid Button
-    private var addAnotherLiquidButton: some View {
-        Button(action: {
-            liquidManager.showingAddLiquidSheet = true
-        }) {
-            HStack {
-                Image(systemName: "plus.circle.fill")
-                    .foregroundColor(.purple)
-                Text("Add Another Liquid")
-                    .fontWeight(.semibold)
+        VStack(spacing: 16) {
+            TabView(selection: $progressMode) {
+                ProgressCircleView(mode: .water)
+                    .environmentObject(liquidManager)
+                    .environmentObject(locationManager)
+                    .environmentObject(themeManager)
+                    .tag(ProgressMode.water)
+                ProgressCircleView(mode: .other)
+                    .environmentObject(liquidManager)
+                    .environmentObject(locationManager)
+                    .environmentObject(themeManager)
+                    .tag(ProgressMode.other)
+                ProgressCircleView(mode: .total)
+                    .environmentObject(liquidManager)
+                    .environmentObject(locationManager)
+                    .environmentObject(themeManager)
+                    .tag(ProgressMode.total)
             }
-            .frame(maxWidth: .infinity)
-            .padding()
-            .background(Color.purple.opacity(0.1))
-            .cornerRadius(12)
+            .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
+            .frame(height: 280)
         }
-        .buttonStyle(PlainButtonStyle())
-        .sheet(isPresented: $liquidManager.showingAddLiquidSheet) {
-            AddLiquidView()
-                .environmentObject(liquidManager)
-        }
+        .padding(.bottom, 16)
     }
     
     // MARK: - Header Section

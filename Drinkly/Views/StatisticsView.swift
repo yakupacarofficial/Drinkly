@@ -190,9 +190,17 @@ struct TimeBasedChart: View {
                 }
                 .frame(height: 200)
                 .chartXAxis {
-                    AxisMarks { _ in
-                        AxisValueLabel()
-                            .font(.caption)
+                    AxisMarks { value in
+                        if let label = value.as(String.self) {
+                            // Show only specific labels based on time range
+                            if shouldShowLabel(label) {
+                                AxisValueLabel {
+                                    Text(label)
+                                        .font(.caption)
+                                        .foregroundColor(.primary)
+                                }
+                            }
+                        }
                     }
                 }
                 .chartYAxis {
@@ -200,6 +208,7 @@ struct TimeBasedChart: View {
                         AxisValueLabel {
                             Text("\(String(format: "%.1f", (value.as(Double.self) ?? 0) / 1000))L")
                                 .font(.caption)
+                                .foregroundColor(.secondary)
                         }
                     }
                 }
@@ -217,6 +226,25 @@ struct TimeBasedChart: View {
         .padding()
         .background(Color(.systemGray6))
         .cornerRadius(12)
+    }
+    
+    private func shouldShowLabel(_ label: String) -> Bool {
+        switch timeRange {
+        case .daily:
+            // Show only every 6 hours for daily view
+            let hour = Int(label.replacingOccurrences(of: ":00", with: "")) ?? 0
+            return hour % 6 == 0
+        case .weekly:
+            // Show all days for weekly view
+            return true
+        case .monthly:
+            // Show only every 7 days for monthly view
+            let day = Int(label.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "dd", with: "")) ?? 0
+            return day % 7 == 0 || day == 1
+        case .yearly:
+            // Show all months for yearly view
+            return true
+        }
     }
 }
 
