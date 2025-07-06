@@ -48,16 +48,6 @@
 			path = Drinkly;
 			sourceTree = "<group>";
 		};
-		5BC6FDDE2E1919D7000BCA97 /* DrinklyTests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = DrinklyTests;
-			sourceTree = "<group>";
-		};
-		5BC6FDE82E1919D7000BCA97 /* DrinklyUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = DrinklyUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -89,8 +79,6 @@
 			isa = PBXGroup;
 			children = (
 				5BC6FDD02E1919D6000BCA97 /* Drinkly */,
-				5BC6FDDE2E1919D7000BCA97 /* DrinklyTests */,
-				5BC6FDE82E1919D7000BCA97 /* DrinklyUITests */,
 				5BC6FDCF2E1919D6000BCA97 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -143,9 +131,6 @@
 			dependencies = (
 				5BC6FDDD2E1919D7000BCA97 /* PBXTargetDependency */,
 			);
-			fileSystemSynchronizedGroups = (
-				5BC6FDDE2E1919D7000BCA97 /* DrinklyTests */,
-			);
 			name = DrinklyTests;
 			packageProductDependencies = (
 			);
@@ -165,9 +150,6 @@
 			);
 			dependencies = (
 				5BC6FDE72E1919D7000BCA97 /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				5BC6FDE82E1919D7000BCA97 /* DrinklyUITests */,
 			);
 			name = DrinklyUITests;
 			packageProductDependencies = (

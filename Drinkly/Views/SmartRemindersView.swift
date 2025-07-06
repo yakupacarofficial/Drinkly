@@ -10,13 +10,15 @@ import SwiftUI
 struct SmartRemindersView: View {
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
     @EnvironmentObject private var aiReminderManager: AIReminderManager
+    @EnvironmentObject private var waterManager: WaterManager
+    
     @State private var showingAddReminder = false
-    @State private var selectedReminder: SmartReminder?
     @State private var showingEditReminder = false
-    @State private var showingSuggestion = false
-    @State private var currentSuggestion: SmartReminder?
+    @State private var selectedReminder: SmartReminder?
     @State private var showingAIInsights = false
     @State private var showingPrivacySettings = false
+    @State private var showingDeleteConfirmation = false
+    @State private var reminderToDelete: SmartReminder?
     
     var body: some View {
         NavigationView {
@@ -33,95 +35,49 @@ struct SmartRemindersView: View {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Menu {
                         Button("Analyze Patterns") {
-                            smartReminderManager.analyzeAndSuggest()
-                        }
-                        
-                        Button("AI Analysis") {
-                            aiReminderManager.analyzeAndSuggestReminders()
-                        }
-                        
-                        Button("AI Insights") {
                             showingAIInsights = true
                         }
-                        
-                        Divider()
                         
                         Button("Privacy Settings") {
                             showingPrivacySettings = true
                         }
                     } label: {
-                        Image(systemName: "brain.head.profile")
+                        Image(systemName: "ellipsis.circle")
+                            .foregroundColor(.blue)
                     }
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Add") {
+                    Button(action: {
+                        HapticFeedbackHelper.shared.trigger()
                         showingAddReminder = true
+                    }) {
+                        Image(systemName: "plus")
+                            .foregroundColor(.blue)
                     }
                 }
             }
             .sheet(isPresented: $showingAddReminder) {
                 AddReminderView()
+                    .environmentObject(smartReminderManager)
             }
             .sheet(isPresented: $showingEditReminder) {
                 if let reminder = selectedReminder {
                     EditReminderView(reminder: reminder)
+                        .environmentObject(smartReminderManager)
                 }
             }
-            .sheet(isPresented: $showingAIInsights) {
-                NavigationView {
-                    AIReminderInsightsView(aiReminderManager: aiReminderManager)
-                        .navigationTitle("AI Insights")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button("Done") {
-                                    showingAIInsights = false
-                                }
-                            }
+            .alert("Delete Reminder", isPresented: $showingDeleteConfirmation) {
+                Button("Delete", role: .destructive) {
+                    if let reminder = reminderToDelete {
+                        Task {
+                            await deleteReminder(reminder)
                         }
-                }
-            }
-            .sheet(isPresented: $showingPrivacySettings) {
-                NavigationView {
-                    PrivacySettingsView(aiReminderManager: aiReminderManager)
-                        .navigationTitle("Privacy Settings")
-                        .navigationBarTitleDisplayMode(.inline)
-                        .toolbar {
-                            ToolbarItem(placement: .navigationBarTrailing) {
-                                Button("Done") {
-                                    showingPrivacySettings = false
-                                }
-                            }
-                        }
-                }
-            }
-            .overlay(
-                Group {
-                    if showingSuggestion, let suggestion = currentSuggestion {
-                        Color.black.opacity(0.3)
-                            .ignoresSafeArea()
-                            .overlay(
-                                SmartReminderSuggestionView(
-                                    suggestion: suggestion,
-                                    onAccept: {
-                                        smartReminderManager.applySuggestion(suggestion)
-                                        showingSuggestion = false
-                                    },
-                                    onDecline: {
-                                        showingSuggestion = false
-                                    }
-                                )
-                                .padding()
-                            )
                     }
                 }
-            )
-            .onReceive(smartReminderManager.$showingSuggestion) { showing in
-                if showing, let suggestion = smartReminderManager.currentSuggestion {
-                    currentSuggestion = suggestion
-                    showingSuggestion = true
-                }
+                Button("Cancel", role: .cancel) { }
+            } message: {
+                Text("Are you sure you want to delete this reminder? This action cannot be undone.")
             }
         }
     }
@@ -225,9 +181,8 @@ struct SmartRemindersView: View {
                                 }
                             },
                             onDelete: {
-                                Task {
-                                    await deleteReminder(reminder)
-                                }
+                                reminderToDelete = reminder
+                                showingDeleteConfirmation = true
                             }
                         )
                     }
@@ -270,9 +225,8 @@ struct SmartRemindersView: View {
                                     }
                                 },
                                 onDelete: {
-                                    Task {
-                                        await deleteReminder(reminder)
-                                    }
+                                    reminderToDelete = reminder
+                                    showingDeleteConfirmation = true
                                 }
                             )
                         }
@@ -319,11 +273,31 @@ struct SmartRemindersView: View {
     }
     
     private func toggleReminder(_ reminder: SmartReminder) async {
-        // Implementation for toggling reminder
+        HapticFeedbackHelper.shared.trigger()
+        
+        // Create a new reminder with toggled enabled state
+        let updatedReminder = SmartReminder(
+            id: reminder.id,
+            time: reminder.time,
+            message: reminder.message,
+            isEnabled: !reminder.isEnabled,
+            isAdaptive: reminder.isAdaptive,
+            skipCount: reminder.skipCount,
+            lastSkipped: reminder.lastSkipped
+        )
+        
+        // Update the reminder in the manager on main thread
+        await MainActor.run {
+            smartReminderManager.updateReminder(updatedReminder)
+        }
     }
     
     private func deleteReminder(_ reminder: SmartReminder) async {
-        // Implementation for deleting reminder
+        HapticFeedbackHelper.shared.trigger()
+        // Remove the reminder from the manager
+        await MainActor.run {
+            smartReminderManager.removeReminder(reminder)
+        }
     }
 }
 
@@ -388,55 +362,103 @@ struct ReminderCard: View {
         VStack(spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(reminder.time.formatted(date: .omitted, time: .shortened))
-                        .font(.title3)
-                        .fontWeight(.semibold)
-                        .foregroundColor(.primary)
+                    HStack {
+                        Image(systemName: reminder.isEnabled ? "bell.fill" : "bell.slash.fill")
+                            .foregroundColor(reminder.isEnabled ? .blue : .gray)
+                            .font(.system(size: 16))
+                        
+                        Text(reminder.time.formatted(date: .omitted, time: .shortened))
+                            .font(.title3)
+                            .fontWeight(.semibold)
+                            .foregroundColor(.primary)
+                    }
                     
                     Text(reminder.message)
                         .font(.body)
                         .foregroundColor(.secondary)
+                        .lineLimit(2)
                 }
                 
                 Spacer()
                 
-                // Skip count indicator
-                if reminder.skipCount > 0 {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.caption)
-                            .foregroundColor(.orange)
-                        
-                        Text("\(reminder.skipCount)")
-                            .font(.caption)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.orange)
+                // Status indicators
+                VStack(spacing: 4) {
+                    // Skip count indicator
+                    if reminder.skipCount > 0 {
+                        HStack(spacing: 4) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.caption)
+                                .foregroundColor(.orange)
+                            
+                            Text("\(reminder.skipCount)")
+                                .font(.caption)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.1))
+                        .cornerRadius(6)
                     }
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .background(Color.orange.opacity(0.1))
-                    .cornerRadius(8)
+                    
+                    // Adaptive learning indicator
+                    if reminder.isAdaptive {
+                        HStack(spacing: 4) {
+                            Image(systemName: "brain.head.profile")
+                                .font(.caption)
+                                .foregroundColor(.purple)
+                            
+                            Text("AI")
+                                .font(.caption2)
+                                .fontWeight(.semibold)
+                                .foregroundColor(.purple)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.purple.opacity(0.1))
+                        .cornerRadius(6)
+                    }
                 }
             }
             
+            // Action buttons
             HStack(spacing: 8) {
-                Button("Edit") {
-                    onEdit()
+                Button(action: onEdit) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 12))
+                        Text("Edit")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .foregroundColor(.blue)
                 
-                Button(reminder.isEnabled ? "Disable" : "Enable") {
-                    onToggle()
+                Button(action: onToggle) {
+                    HStack(spacing: 4) {
+                        Image(systemName: reminder.isEnabled ? "pause.fill" : "play.fill")
+                            .font(.system(size: 12))
+                        Text(reminder.isEnabled ? "Disable" : "Enable")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-                .foregroundColor(reminder.isEnabled ? .red : .green)
+                .foregroundColor(reminder.isEnabled ? .orange : .green)
                 
                 Spacer()
                 
-                Button("Delete") {
-                    onDelete()
+                Button(action: onDelete) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "trash.fill")
+                            .font(.system(size: 12))
+                        Text("Delete")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                    }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -447,7 +469,12 @@ struct ReminderCard: View {
         .background(Color(.systemBackground))
         .cornerRadius(12)
         .shadow(radius: 2)
-        .opacity(reminder.isEnabled ? 1.0 : 0.6)
+        .opacity(reminder.isEnabled ? 1.0 : 0.7)
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(reminder.isEnabled ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
+        )
+        .id(reminder.id) // Force view refresh when reminder changes
     }
 }
 
@@ -551,6 +578,7 @@ struct AddReminderView: View {
     @State private var selectedTime = Date()
     @State private var message = "Time to hydrate! 💧"
     @State private var isAdaptive = true
+    @State private var showingValidationError = false
     
     var body: some View {
         NavigationView {
@@ -561,10 +589,40 @@ struct AddReminderView: View {
                 
                 Section("Message") {
                     TextField("Message", text: $message)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
                 }
                 
                 Section("Settings") {
                     Toggle("Adaptive Learning", isOn: $isAdaptive)
+                }
+                
+                Section("Preview") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Reminder Preview:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        HStack {
+                            Image(systemName: "clock.fill")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 14))
+                            
+                            Text(selectedTime.formatted(date: .omitted, time: .shortened))
+                                .font(.body)
+                                .fontWeight(.medium)
+                        }
+                        
+                        HStack {
+                            Image(systemName: "message.fill")
+                                .foregroundColor(.blue)
+                                .font(.system(size: 14))
+                            
+                            Text(message.isEmpty ? "Enter a message..." : message)
+                                .font(.body)
+                                .foregroundColor(message.isEmpty ? .secondary : .primary)
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
             }
             .navigationTitle("Add Reminder")
@@ -578,18 +636,36 @@ struct AddReminderView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Add") {
-                        let reminder = SmartReminder(
-                            time: selectedTime,
-                            message: message,
-                            isEnabled: true,
-                            isAdaptive: isAdaptive
-                        )
-                        smartReminderManager.addReminder(reminder)
-                        dismiss()
+                        addReminder()
                     }
+                    .disabled(message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
+            .alert("Invalid Input", isPresented: $showingValidationError) {
+                Button("OK") { }
+            } message: {
+                Text("Please enter a valid message for the reminder.")
+            }
         }
+    }
+    
+    private func addReminder() {
+        let trimmedMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedMessage.isEmpty else {
+            showingValidationError = true
+            return
+        }
+        
+        let reminder = SmartReminder(
+            time: selectedTime,
+            message: trimmedMessage,
+            isEnabled: true,
+            isAdaptive: isAdaptive
+        )
+        
+        smartReminderManager.addReminder(reminder)
+        dismiss()
     }
 }
 
@@ -602,6 +678,7 @@ struct EditReminderView: View {
     @State private var selectedTime: Date
     @State private var message: String
     @State private var isAdaptive: Bool
+    @State private var showingValidationError = false
     
     init(reminder: SmartReminder) {
         self.reminder = reminder
@@ -619,10 +696,40 @@ struct EditReminderView: View {
                 
                 Section("Message") {
                     TextField("Message", text: $message)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
                 }
                 
                 Section("Settings") {
                     Toggle("Adaptive Learning", isOn: $isAdaptive)
+                }
+                
+                Section("Preview") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Reminder Preview:")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        
+                        HStack {
+                            Image(systemName: "clock.fill")
+                                .foregroundColor(.orange)
+                                .font(.system(size: 14))
+                            
+                            Text(selectedTime.formatted(date: .omitted, time: .shortened))
+                                .font(.body)
+                                .fontWeight(.medium)
+                        }
+                        
+                        HStack {
+                            Image(systemName: "message.fill")
+                                .foregroundColor(.blue)
+                                .font(.system(size: 14))
+                            
+                            Text(message.isEmpty ? "Enter a message..." : message)
+                                .font(.body)
+                                .foregroundColor(message.isEmpty ? .secondary : .primary)
+                        }
+                    }
+                    .padding(.vertical, 4)
                 }
             }
             .navigationTitle("Edit Reminder")
@@ -636,12 +743,43 @@ struct EditReminderView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        smartReminderManager.updateReminderTime(reminder, newTime: selectedTime)
-                        dismiss()
+                        saveChanges()
                     }
+                    .disabled(message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
+            .alert("Invalid Input", isPresented: $showingValidationError) {
+                Button("OK") { }
+            } message: {
+                Text("Please enter a valid message for the reminder.")
+            }
         }
+        .navigationViewStyle(StackNavigationViewStyle())
+    }
+    
+    private func saveChanges() {
+        let trimmedMessage = message.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        guard !trimmedMessage.isEmpty else {
+            showingValidationError = true
+            return
+        }
+        
+        // Create updated reminder
+        let updatedReminder = SmartReminder(
+            id: reminder.id,
+            time: selectedTime,
+            message: trimmedMessage,
+            isEnabled: reminder.isEnabled,
+            isAdaptive: isAdaptive,
+            skipCount: reminder.skipCount,
+            lastSkipped: reminder.lastSkipped
+        )
+        
+        // Update the reminder
+        smartReminderManager.updateReminder(updatedReminder)
+        
+        dismiss()
     }
 }
 

@@ -315,6 +315,9 @@ class AchievementManager: ObservableObject {
         notifiedAchievementIds.insert(achievement.id)
         saveNotifiedAchievements()
         
+        // Schedule achievement notification with custom sound
+        NotificationManager.shared.scheduleAchievementNotification(for: achievement)
+        
         // Show unlock animation
         showingUnlockAnimation = true
         

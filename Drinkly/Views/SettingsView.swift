@@ -26,6 +26,7 @@ struct SettingsView: View {
     @State private var reminderTime: Date = Self.loadReminderTime()
     @State private var showNotificationAlert = false
     @State private var showingProfileView = false
+    @State private var showingSmartReminders = false
     
     var body: some View {
         NavigationView {
@@ -85,6 +86,14 @@ struct SettingsView: View {
             ProfileView(existingProfile: waterManager.userProfile)
                 .environmentObject(waterManager)
         }
+        .sheet(isPresented: $showingSmartReminders) {
+            SmartRemindersView()
+                .environmentObject(waterManager)
+                .environmentObject(notificationManager)
+                .environmentObject(achievementManager)
+                .environmentObject(hydrationHistory)
+                .environmentObject(smartReminderManager)
+        }
     }
     
     // MARK: - Private Views
@@ -116,6 +125,7 @@ struct SettingsView: View {
                     Spacer()
                     
                     Button("Edit") {
+                        HapticFeedbackHelper.shared.trigger()
                         showingProfileView = true
                     }
                     .foregroundColor(.blue)
@@ -239,19 +249,27 @@ struct SettingsView: View {
     }
     
     private var notificationSection: some View {
-        Section("Smart Reminders") {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Smart reminders are managed in the Reminders tab")
-                    .font(.subheadline)
-                    .foregroundColor(.secondary)
-                
-                Button("Open Smart Reminders") {
-                    // This would navigate to SmartRemindersView
-                    // For now, just show a message
+        Group {
+            Section("Notifications") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Button(action: {
+                        HapticFeedbackHelper.shared.trigger()
+                        showingSmartReminders = true
+                    }) {
+                        HStack {
+                            Image(systemName: "bell.fill")
+                                .foregroundColor(.blue)
+                            Text("Open Smart Reminders")
+                                .font(.body)
+                        }
+                    }
+                    .foregroundColor(.blue)
                 }
-                .foregroundColor(.blue)
+                .padding(.vertical, 4)
             }
-            .padding(.vertical, 4)
+            
+            NotificationSoundSection()
+                .environmentObject(notificationManager)
         }
     }
     
@@ -267,6 +285,7 @@ struct SettingsView: View {
     private var actionsSection: some View {
         Section("Actions") {
             Button(action: {
+                HapticFeedbackHelper.shared.trigger()
                 showingResetAlert = true
             }) {
                 HStack {
@@ -279,6 +298,7 @@ struct SettingsView: View {
             }
             
             Button(action: {
+                HapticFeedbackHelper.shared.trigger()
                 showingResetAllAlert = true
             }) {
                 HStack {
@@ -311,6 +331,7 @@ struct SettingsView: View {
     
     private var saveButton: some View {
         Button("Save") {
+            HapticFeedbackHelper.shared.trigger()
             saveSettings()
             dismiss()
         }
@@ -319,6 +340,7 @@ struct SettingsView: View {
     
     private var cancelButton: some View {
         Button("Cancel") {
+            HapticFeedbackHelper.shared.trigger()
             dismiss()
         }
         .foregroundColor(.secondary)

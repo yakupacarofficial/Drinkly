@@ -8,6 +8,7 @@
 import SwiftUI
 import PhotosUI
 import UIKit
+import AVFoundation
 
 /// Manages profile picture functionality including image picker and storage
 @MainActor
@@ -20,6 +21,7 @@ class ProfilePictureManager: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage = ""
     @Published var showingError = false
+    @Published var imagePickerSourceType: UIImagePickerController.SourceType = .photoLibrary
     
     // MARK: - Private Properties
     private let userDefaults = UserDefaults.standard
@@ -35,6 +37,53 @@ class ProfilePictureManager: ObservableObject {
     /// Show image picker options (camera or photo library)
     func showImageOptions() {
         showingImageOptions = true
+    }
+    
+    /// Select camera as image source
+    func selectCamera() {
+        HapticFeedbackHelper.shared.trigger()
+        
+        // Check if camera is available
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            // Check camera authorization
+            switch AVCaptureDevice.authorizationStatus(for: .video) {
+            case .authorized:
+                imagePickerSourceType = .camera
+                isImagePickerPresented = true
+            case .notDetermined:
+                AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
+                    DispatchQueue.main.async {
+                        if granted {
+                            self?.imagePickerSourceType = .camera
+                            self?.isImagePickerPresented = true
+                        } else {
+                            self?.showCameraPermissionAlert()
+                        }
+                    }
+                }
+            case .denied, .restricted:
+                showCameraPermissionAlert()
+            @unknown default:
+                showCameraPermissionAlert()
+            }
+        } else {
+            // Camera not available, use photo library
+            imagePickerSourceType = .photoLibrary
+            isImagePickerPresented = true
+        }
+    }
+    
+    /// Select photo library as image source
+    func selectPhotoLibrary() {
+        HapticFeedbackHelper.shared.trigger()
+        imagePickerSourceType = .photoLibrary
+        isImagePickerPresented = true
+    }
+    
+    /// Show camera permission alert
+    private func showCameraPermissionAlert() {
+        errorMessage = "Camera access is required to take photos. Please enable camera access in Settings."
+        showingError = true
     }
     
     /// Load profile image from storage
@@ -197,7 +246,7 @@ struct ProfilePictureView: View {
             }
         }
         .sheet(isPresented: $profilePictureManager.isImagePickerPresented) {
-            ImagePicker(selectedImage: $profilePictureManager.profileImage, isPresented: $profilePictureManager.isImagePickerPresented, sourceType: .photoLibrary)
+            ImagePicker(selectedImage: $profilePictureManager.profileImage, isPresented: $profilePictureManager.isImagePickerPresented, sourceType: profilePictureManager.imagePickerSourceType)
                 .onDisappear {
                     if let image = profilePictureManager.profileImage {
                         profilePictureManager.processSelectedImage(image)
@@ -211,10 +260,10 @@ struct ProfilePictureView: View {
                 buttons: [
                     .default(Text("Camera")) {
                         // Handle camera access
-                        profilePictureManager.isImagePickerPresented = true
+                        profilePictureManager.selectCamera()
                     },
                     .default(Text("Photo Library")) {
-                        profilePictureManager.isImagePickerPresented = true
+                        profilePictureManager.selectPhotoLibrary()
                     },
                     .destructive(Text("Remove")) {
                         profilePictureManager.removeProfileImage()

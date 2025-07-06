@@ -428,6 +428,9 @@ class WaterManager: ObservableObject {
     private func showCelebration() {
         showingCelebration = true
         
+        // Schedule daily summary notification if goal is met
+        scheduleDailySummaryNotification()
+        
         // Hide celebration after 3 seconds
         Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
@@ -435,6 +438,21 @@ class WaterManager: ObservableObject {
                 showingCelebration = false
             }
         }
+    }
+    
+    /// Schedule daily summary notification with custom sound
+    private func scheduleDailySummaryNotification() {
+        guard let hydrationHistory = hydrationHistory else { return }
+        
+        let todayRecord = hydrationHistory.getTodayRecord()
+        
+        let summary = """
+        Today's Progress: \(String(format: "%.1f", todayRecord.totalIntake))L / \(String(format: "%.1f", dailyGoal))L
+        Goal Achievement: \(Int(todayRecord.totalIntake / dailyGoal * 100))%
+        Drinks Today: \(todayDrinks.count)
+        """
+        
+        NotificationManager.shared.scheduleDailySummaryNotification(summary: summary)
     }
     
     private func loadData() {

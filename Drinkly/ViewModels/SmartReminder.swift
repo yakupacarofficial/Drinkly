@@ -13,12 +13,22 @@ struct SmartReminder: Codable, Identifiable {
     var id = UUID()
     let time: Date
     let message: String
-    let isEnabled: Bool
+    var isEnabled: Bool
     let isAdaptive: Bool
     let skipCount: Int
     let lastSkipped: Date?
     
     init(time: Date, message: String, isEnabled: Bool = true, isAdaptive: Bool = true, skipCount: Int = 0, lastSkipped: Date? = nil) {
+        self.time = time
+        self.message = message
+        self.isEnabled = isEnabled
+        self.isAdaptive = isAdaptive
+        self.skipCount = skipCount
+        self.lastSkipped = lastSkipped
+    }
+    
+    init(id: UUID, time: Date, message: String, isEnabled: Bool = true, isAdaptive: Bool = true, skipCount: Int = 0, lastSkipped: Date? = nil) {
+        self.id = id
         self.time = time
         self.message = message
         self.isEnabled = isEnabled
@@ -78,8 +88,8 @@ class SmartReminderManager: ObservableObject {
     /// Update reminder time
     func updateReminderTime(_ reminder: SmartReminder, newTime: Date) {
         if let index = reminders.firstIndex(where: { $0.id == reminder.id }) {
-            var updatedReminder = reminder
-            updatedReminder = SmartReminder(
+            let updatedReminder = SmartReminder(
+                id: reminder.id,
                 time: newTime,
                 message: reminder.message,
                 isEnabled: reminder.isEnabled,
@@ -94,11 +104,25 @@ class SmartReminderManager: ObservableObject {
         }
     }
     
+    /// Update reminder with new properties
+    func updateReminder(_ updatedReminder: SmartReminder) {
+        if let index = reminders.firstIndex(where: { $0.id == updatedReminder.id }) {
+            reminders[index] = updatedReminder
+            saveReminders()
+            
+            // Cancel existing notification and schedule new one if enabled
+            cancelNotification(for: updatedReminder)
+            if updatedReminder.isEnabled {
+                scheduleNotification(for: updatedReminder)
+            }
+        }
+    }
+    
     /// Mark reminder as skipped
     func markReminderAsSkipped(_ reminder: SmartReminder) {
         if let index = reminders.firstIndex(where: { $0.id == reminder.id }) {
-            var updatedReminder = reminder
-            updatedReminder = SmartReminder(
+            let updatedReminder = SmartReminder(
+                id: reminder.id,
                 time: reminder.time,
                 message: reminder.message,
                 isEnabled: reminder.isEnabled,
@@ -124,8 +148,8 @@ class SmartReminderManager: ObservableObject {
     /// Mark reminder as completed
     func markReminderAsCompleted(_ reminder: SmartReminder) {
         if let index = reminders.firstIndex(where: { $0.id == reminder.id }) {
-            var updatedReminder = reminder
-            updatedReminder = SmartReminder(
+            let updatedReminder = SmartReminder(
+                id: reminder.id,
                 time: reminder.time,
                 message: reminder.message,
                 isEnabled: reminder.isEnabled,
@@ -244,21 +268,8 @@ class SmartReminderManager: ObservableObject {
     private func scheduleNotification(for reminder: SmartReminder) {
         guard reminder.isEnabled else { return }
         
-        let content = UNMutableNotificationContent()
-        content.title = "Drinkly Reminder"
-        content.body = reminder.message
-        content.sound = .default
-        content.badge = 1
-        
-        let calendar = Calendar.current
-        let components = calendar.dateComponents([.hour, .minute], from: reminder.time)
-        
-        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-        let request = UNNotificationRequest(identifier: reminder.id.uuidString, content: content, trigger: trigger)
-        
-        notificationCenter.add(request) { _ in
-            // Error scheduling notification logged
-        }
+        // Use NotificationManager to schedule with custom sound
+        NotificationManager.shared.scheduleSmartReminderNotification(for: reminder)
     }
     
     private func cancelNotification(for reminder: SmartReminder) {

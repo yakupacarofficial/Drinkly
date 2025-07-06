@@ -16,6 +16,10 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Drinkly needs camera access to take profile pictures.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Drinkly needs photo library access to select profile pictures.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Drinkly needs your location to show your city and personalize your water goal.</string>
 	<key>UILaunchScreen</key>

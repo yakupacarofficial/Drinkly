@@ -7,6 +7,8 @@
 
 import Foundation
 import SwiftUI
+import UIKit
+import AudioToolbox
 
 /// Performance monitoring utility for tracking app performance
 @MainActor
@@ -150,5 +152,20 @@ extension View {
         .onDisappear {
             PerformanceMonitor.shared.endTiming(name)
         }
+    }
+}
+
+class HapticFeedbackHelper {
+    static let shared = HapticFeedbackHelper()
+    private let impact = UIImpactFeedbackGenerator(style: .light)
+    private init() {}
+    
+    func trigger() {
+        impact.impactOccurred()
+        playClickSound()
+    }
+    
+    private func playClickSound() {
+        AudioServicesPlaySystemSound(1104) // System click sound
     }
 } 
