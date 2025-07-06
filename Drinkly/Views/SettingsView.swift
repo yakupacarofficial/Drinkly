@@ -17,6 +17,7 @@ struct SettingsView: View {
     @EnvironmentObject private var achievementManager: AchievementManager
     @EnvironmentObject private var hydrationHistory: HydrationHistory
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
+    @EnvironmentObject private var aiReminderManager: AIReminderManager
     @Environment(\.dismiss) private var dismiss
     
     // MARK: - State Properties
@@ -87,12 +88,12 @@ struct SettingsView: View {
                 .environmentObject(waterManager)
         }
         .sheet(isPresented: $showingSmartReminders) {
-            SmartRemindersView()
+            SmartRemindersView(smartReminderManager: smartReminderManager)
                 .environmentObject(waterManager)
                 .environmentObject(notificationManager)
                 .environmentObject(achievementManager)
                 .environmentObject(hydrationHistory)
-                .environmentObject(smartReminderManager)
+                .environmentObject(aiReminderManager)
         }
     }
     

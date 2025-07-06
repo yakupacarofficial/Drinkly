@@ -98,7 +98,7 @@ struct MainView: View {
                 .tag(Tab.achievements)
             
             // Smart Reminders Tab
-            SmartRemindersView()
+            SmartRemindersView(smartReminderManager: smartReminderManager)
                 .environmentObject(waterManager)
                 .environmentObject(locationManager)
                 .environmentObject(weatherManager)
@@ -106,7 +106,6 @@ struct MainView: View {
                 .environmentObject(performanceMonitor)
                 .environmentObject(hydrationHistory)
                 .environmentObject(achievementManager)
-                .environmentObject(smartReminderManager)
                 .environmentObject(profilePictureManager)
                 .environmentObject(aiWaterPredictor)
                 .environmentObject(aiReminderManager)

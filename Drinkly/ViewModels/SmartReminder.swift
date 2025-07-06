@@ -106,6 +106,7 @@ class SmartReminderManager: ObservableObject {
     
     /// Update reminder with new properties
     func updateReminder(_ updatedReminder: SmartReminder) {
+        objectWillChange.send()
         if let index = reminders.firstIndex(where: { $0.id == updatedReminder.id }) {
             reminders[index] = updatedReminder
             saveReminders()

@@ -8,9 +8,13 @@
 import SwiftUI
 
 struct SmartRemindersView: View {
-    @EnvironmentObject private var smartReminderManager: SmartReminderManager
+    @ObservedObject private var smartReminderManager: SmartReminderManager
     @EnvironmentObject private var aiReminderManager: AIReminderManager
     @EnvironmentObject private var waterManager: WaterManager
+    
+    init(smartReminderManager: SmartReminderManager) {
+        self.smartReminderManager = smartReminderManager
+    }
     
     @State private var showingAddReminder = false
     @State private var showingEditReminder = false
@@ -168,9 +172,10 @@ struct SmartRemindersView: View {
             LazyVStack(spacing: 16) {
                 // Active reminders
                 Section(header: sectionHeader("Active Reminders", count: activeReminders.count)) {
-                    ForEach(activeReminders) { reminder in
+                    ForEach(activeReminders, id: \.id) { reminder in
                         ReminderCard(
-                            reminder: reminder,
+                            manager: smartReminderManager,
+                            reminderId: reminder.id,
                             onEdit: {
                                 selectedReminder = reminder
                                 showingEditReminder = true
@@ -212,9 +217,10 @@ struct SmartRemindersView: View {
                 // Disabled reminders
                 if !disabledReminders.isEmpty {
                     Section(header: sectionHeader("Disabled Reminders", count: disabledReminders.count)) {
-                        ForEach(disabledReminders) { reminder in
+                        ForEach(disabledReminders, id: \.id) { reminder in
                             ReminderCard(
-                                reminder: reminder,
+                                manager: smartReminderManager,
+                                reminderId: reminder.id,
                                 onEdit: {
                                     selectedReminder = reminder
                                     showingEditReminder = true
@@ -275,15 +281,20 @@ struct SmartRemindersView: View {
     private func toggleReminder(_ reminder: SmartReminder) async {
         HapticFeedbackHelper.shared.trigger()
         
+        // Get the current reminder from manager to ensure we have the latest state
+        guard let currentReminder = smartReminderManager.reminders.first(where: { $0.id == reminder.id }) else {
+            return
+        }
+        
         // Create a new reminder with toggled enabled state
         let updatedReminder = SmartReminder(
-            id: reminder.id,
-            time: reminder.time,
-            message: reminder.message,
-            isEnabled: !reminder.isEnabled,
-            isAdaptive: reminder.isAdaptive,
-            skipCount: reminder.skipCount,
-            lastSkipped: reminder.lastSkipped
+            id: currentReminder.id,
+            time: currentReminder.time,
+            message: currentReminder.message,
+            isEnabled: !currentReminder.isEnabled,
+            isAdaptive: currentReminder.isAdaptive,
+            skipCount: currentReminder.skipCount,
+            lastSkipped: currentReminder.lastSkipped
         )
         
         // Update the reminder in the manager on main thread
@@ -353,12 +364,18 @@ struct SmartFeatureCard: View {
 
 // MARK: - Reminder Card
 struct ReminderCard: View {
-    let reminder: SmartReminder
+    @ObservedObject var manager: SmartReminderManager
+    let reminderId: UUID
     let onEdit: () -> Void
     let onToggle: () -> Void
     let onDelete: () -> Void
     
+    private var reminder: SmartReminder? {
+        manager.reminders.first { $0.id == reminderId }
+    }
+    
     var body: some View {
+        if let reminder = reminder {
         VStack(spacing: 12) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
@@ -474,7 +491,8 @@ struct ReminderCard: View {
             RoundedRectangle(cornerRadius: 12)
                 .stroke(reminder.isEnabled ? Color.clear : Color.gray.opacity(0.3), lineWidth: 1)
         )
-        .id(reminder.id) // Force view refresh when reminder changes
+        .id(reminder.id)
+        }
     }
 }
 
@@ -856,7 +874,6 @@ struct SmartReminderSuggestionView: View {
 }
 
 #Preview {
-    SmartRemindersView()
-        .environmentObject(SmartReminderManager())
+    SmartRemindersView(smartReminderManager: SmartReminderManager())
         .environmentObject(AIReminderManager())
 } 
