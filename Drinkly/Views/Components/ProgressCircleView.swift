@@ -25,7 +25,8 @@ struct ProgressCircleView: View {
             progressText
         }
         .onChange(of: waterManager.progressPercentage) { _, newValue in
-            cachedProgressPercentage = newValue
+            // Convert percentage to 0-1 range for circle animation
+            cachedProgressPercentage = newValue / 100.0
         }
         .onChange(of: waterManager.currentAmount) { _, newValue in
             cachedCurrentAmount = newValue
@@ -45,7 +46,7 @@ struct ProgressCircleView: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Water progress")
-        .accessibilityValue("\(Int(cachedProgressPercentage * 100))% complete, \(String(format: "%.1f", cachedCurrentAmount)) liters of \(String(format: "%.1f", cachedDailyGoal)) liters")
+        .accessibilityValue("\(Int(waterManager.progressPercentage))% complete, \(String(format: "%.1f", cachedCurrentAmount)) liters of \(String(format: "%.1f", cachedDailyGoal)) liters")
     }
     
     private var backgroundCircle: some View {
@@ -94,7 +95,7 @@ struct ProgressCircleView: View {
     
     private var progressText: some View {
         VStack(spacing: 4) {
-            Text("\(Int(cachedProgressPercentage * 100))% Complete")
+            Text("\(Int(waterManager.progressPercentage))% Complete")
                 .font(.headline)
                 .foregroundColor(.blue)
             

@@ -40,7 +40,12 @@ class WaterManager: ObservableObject {
     // MARK: - Computed Properties
     var progressPercentage: Double {
         guard dailyGoal > 0 else { return 0 }
-        return min(100, max(0, (currentAmount / dailyGoal) * 100))
+        let percentage = (currentAmount / dailyGoal) * 100
+        // Ensure exact 100% when goal is met or exceeded
+        if currentAmount >= dailyGoal {
+            return 100.0
+        }
+        return min(100, max(0, percentage))
     }
     
     var progressColor: Color {
