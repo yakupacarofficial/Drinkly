@@ -26,7 +26,14 @@ struct ProgressCircleView: View {
         }
         .onChange(of: waterManager.progressPercentage) { _, newValue in
             // Convert percentage to 0-1 range for circle animation
-            cachedProgressPercentage = newValue / 100.0
+            var progress = newValue / 100.0
+            
+            // If progress is very close to 100%, set it to 1.0 (100%)
+            if progress >= 0.995 {
+                progress = 1.0
+            }
+            
+            cachedProgressPercentage = progress
         }
         .onChange(of: waterManager.currentAmount) { _, newValue in
             cachedCurrentAmount = newValue
