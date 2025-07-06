@@ -10,6 +10,7 @@ import SwiftUI
 struct ProfileView: View {
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject var waterManager: WaterManager
+    @EnvironmentObject var profilePictureManager: ProfilePictureManager
     
     @State private var userProfile: UserProfile
     @State private var showingValidationAlert = false
@@ -48,16 +49,15 @@ struct ProfileView: View {
             }
             .sheet(isPresented: $showingActivityPicker) {
                 ActivityLevelPickerView(selectedLevel: $userProfile.activityLevel)
+                    .environmentObject(waterManager)
             }
         }
     }
     
     // MARK: - Header Section
     private var headerSection: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "person.circle.fill")
-                .font(.system(size: 60))
-                .foregroundColor(.blue)
+        VStack(spacing: 16) {
+            ProfilePictureView(size: 80, showEditButton: true)
             
             Text("Personalize Your Hydration")
                 .font(.title2)
@@ -114,6 +114,28 @@ struct ProfileView: View {
                 
                 if userProfile.weight < 30 || userProfile.weight > 200 {
                     Text("Weight must be between 30 and 200 kg")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+            }
+            
+            // Height Field
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Height", systemImage: "ruler")
+                    .font(.headline)
+                
+                HStack {
+                    TextField("Enter your height", value: $userProfile.height, format: .number)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+                        .keyboardType(.decimalPad)
+                        .accessibilityLabel("Height input field")
+                    
+                    Text("cm")
+                        .foregroundColor(.secondary)
+                }
+                
+                if userProfile.height < 100 || userProfile.height > 250 {
+                    Text("Height must be between 100 and 250 cm")
                         .font(.caption)
                         .foregroundColor(.red)
                 }
@@ -195,12 +217,13 @@ struct ProfileView: View {
     private var isFormValid: Bool {
         let ageValid = userProfile.age >= 10 && userProfile.age <= 100
         let weightValid = userProfile.weight >= 30 && userProfile.weight <= 200
-        return ageValid && weightValid
+        let heightValid = userProfile.height >= 100 && userProfile.height <= 250
+        return ageValid && weightValid && heightValid
     }
     
     private func saveProfile() {
         guard isFormValid else {
-            validationMessage = "Please enter valid age (10-100) and weight (30-200 kg)."
+            validationMessage = "Please enter valid age (10-100), weight (30-200 kg), and height (100-250 cm)."
             showingValidationAlert = true
             return
         }
@@ -214,6 +237,12 @@ struct ProfileView: View {
         
         if userProfile.weight < 30 || userProfile.weight > 200 {
             validationMessage = "Weight must be between 30 and 200 kg."
+            showingValidationAlert = true
+            return
+        }
+        
+        if userProfile.height < 100 || userProfile.height > 250 {
+            validationMessage = "Height must be between 100 and 250 cm."
             showingValidationAlert = true
             return
         }
@@ -250,12 +279,19 @@ struct ProfileView: View {
 struct ActivityLevelPickerView: View {
     @Environment(\.dismiss) private var dismiss
     @Binding var selectedLevel: UserProfile.ActivityLevel
+    @State private var tempSelectedLevel: UserProfile.ActivityLevel
+    
+    init(selectedLevel: Binding<UserProfile.ActivityLevel>) {
+        self._selectedLevel = selectedLevel
+        self._tempSelectedLevel = State(initialValue: selectedLevel.wrappedValue)
+    }
     
     var body: some View {
         NavigationView {
             List {
                 ForEach(UserProfile.ActivityLevel.allCases, id: \.self) { level in
                     Button(action: {
+                        tempSelectedLevel = level
                         selectedLevel = level
                         dismiss()
                     }) {
@@ -267,7 +303,7 @@ struct ActivityLevelPickerView: View {
                                 
                                 Spacer()
                                 
-                                if selectedLevel == level {
+                                if tempSelectedLevel == level {
                                     Image(systemName: "checkmark")
                                         .foregroundColor(.blue)
                                 }
@@ -288,6 +324,7 @@ struct ActivityLevelPickerView: View {
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Done") {
+                        selectedLevel = tempSelectedLevel
                         dismiss()
                     }
                 }
@@ -324,4 +361,5 @@ extension UserProfile.ActivityLevel {
         .environmentObject(HydrationHistory())
         .environmentObject(AchievementManager())
         .environmentObject(SmartReminderManager())
+        .environmentObject(ProfilePictureManager())
 } 

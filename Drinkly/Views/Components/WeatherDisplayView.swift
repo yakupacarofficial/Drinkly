@@ -58,6 +58,23 @@ struct WeatherDisplayView: View {
                     Spacer()
                 }
             }
+            
+            // Hot weather warning
+            if weatherManager.currentTemperature > 30 {
+                HStack {
+                    Image(systemName: "thermometer.sun.fill")
+                        .foregroundColor(.red)
+                        .font(.system(size: 12))
+                    
+                    Text("It's very hot! Stay hydrated!")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundColor(.red)
+                        .lineLimit(2)
+                    
+                    Spacer()
+                }
+                .padding(.top, 4)
+            }
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)

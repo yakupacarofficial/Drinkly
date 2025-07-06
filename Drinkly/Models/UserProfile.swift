@@ -29,13 +29,15 @@ struct UserProfile: Codable, Equatable {
     
     var age: Int
     var weight: Double // in kg
+    var height: Double // in cm
     var gender: Gender
     var activityLevel: ActivityLevel
     
     // MARK: - Initializer
-    init(age: Int, weight: Double, gender: Gender, activityLevel: ActivityLevel) {
+    init(age: Int, weight: Double, height: Double, gender: Gender, activityLevel: ActivityLevel) {
         self.age = age
         self.weight = weight
+        self.height = height
         self.gender = gender
         self.activityLevel = activityLevel
     }
@@ -44,7 +46,8 @@ struct UserProfile: Codable, Equatable {
     var isValid: Bool {
         let ageValid = (10...100).contains(age)
         let weightValid = (30...200).contains(weight)
-        return ageValid && weightValid
+        let heightValid = (100...250).contains(height)
+        return ageValid && weightValid && heightValid
     }
     
     /// Validate specific fields and return error messages
@@ -59,6 +62,10 @@ struct UserProfile: Codable, Equatable {
             errors.append("Weight must be between 30 and 200 kg")
         }
         
+        if height < 100 || height > 250 {
+            errors.append("Height must be between 100 and 250 cm")
+        }
+        
         return errors
     }
     
@@ -66,10 +73,11 @@ struct UserProfile: Codable, Equatable {
     mutating func sanitize() {
         age = max(10, min(100, age))
         weight = max(30, min(200, weight))
+        height = max(100, min(250, height))
     }
     
     // MARK: - Default Profile
-    static let `default` = UserProfile(age: 25, weight: 70, gender: .male, activityLevel: .moderate)
+    static let `default` = UserProfile(age: 25, weight: 70, height: 170, gender: .male, activityLevel: .moderate)
 }
 
 // MARK: - Persistence Helper

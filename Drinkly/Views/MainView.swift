@@ -19,6 +19,8 @@ struct MainView: View {
     @EnvironmentObject private var hydrationHistory: HydrationHistory
     @EnvironmentObject private var achievementManager: AchievementManager
     @EnvironmentObject private var smartReminderManager: SmartReminderManager
+    @EnvironmentObject private var profilePictureManager: ProfilePictureManager
+    @EnvironmentObject private var aiWaterPredictor: AIWaterPredictor
     
     // MARK: - State Properties
     @State private var selectedTab: Tab = .home
@@ -136,6 +138,9 @@ struct MainView: View {
                         // Today's summary
                         todaySummarySection
                         
+                        // AI Insights
+                        aiInsightsSection
+                        
                         // Recent achievements
                         recentAchievementsSection
                         
@@ -152,8 +157,7 @@ struct MainView: View {
                     Button {
                         showingProfile = true
                     } label: {
-                        Image(systemName: "person.circle.fill")
-                            .font(.title2)
+                        ProfilePictureView(size: 32, showEditButton: false)
                     }
                 }
                 
@@ -330,6 +334,76 @@ struct MainView: View {
         }
     }
     
+    // MARK: - AI Insights Section
+    private var aiInsightsSection: some View {
+        VStack(spacing: 16) {
+            HStack {
+                Text("AI Insights")
+                    .font(.headline)
+                
+                Spacer()
+                
+                if aiWaterPredictor.isModelReady {
+                    HStack(spacing: 4) {
+                        Image(systemName: "brain.head.profile")
+                            .foregroundColor(.blue)
+                        Text("\(Int(aiWaterPredictor.predictionAccuracy * 100))%")
+                            .font(.caption)
+                            .foregroundColor(.blue)
+                    }
+                }
+            }
+            
+            if aiWaterPredictor.isModelReady {
+                VStack(spacing: 12) {
+                    // AI Prediction Card
+                    if let prediction = waterManager.aiPrediction {
+                        AIPredictionCard(prediction: prediction)
+                    }
+                    
+                    // Learning Progress
+                    if aiWaterPredictor.learningProgress > 0 && aiWaterPredictor.learningProgress < 1.0 {
+                        HStack {
+                            Image(systemName: "brain.head.profile")
+                                .foregroundColor(.blue)
+                            Text("Learning from your patterns...")
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                            ProgressView(value: aiWaterPredictor.learningProgress)
+                                .frame(width: 60)
+                        }
+                        .padding()
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
+                    }
+                    
+                    // AI Stats
+                    let insights = aiWaterPredictor.getLearningInsights()
+                    AILearningStatsCard(insights: insights)
+                }
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "brain.head.profile")
+                        .font(.title2)
+                        .foregroundColor(.gray)
+                    
+                    Text("AI Learning")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Text("Start drinking water to train the AI model")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                }
+                .padding()
+                .background(Color(.systemGray6))
+                .cornerRadius(12)
+            }
+        }
+    }
+    
     // MARK: - Recent Achievements Section
     private var recentAchievementsSection: some View {
         VStack(spacing: 16) {
@@ -428,7 +502,8 @@ struct MainView: View {
             hydrationHistory: hydrationHistory,
             achievementManager: achievementManager,
             smartReminderManager: smartReminderManager,
-            weatherManager: weatherManager
+            weatherManager: weatherManager,
+            aiWaterPredictor: aiWaterPredictor
         )
         
         // Request location permissions
@@ -441,6 +516,133 @@ struct MainView: View {
         smartReminderManager.analyzeAndSuggest()
         
         performanceMonitor.endTiming("app_setup")
+    }
+}
+
+// MARK: - AI Supporting Views
+
+struct AIPredictionCard: View {
+    let prediction: WaterPrediction
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "brain.head.profile")
+                    .foregroundColor(.blue)
+                Text("AI Prediction")
+                    .font(.headline)
+                Spacer()
+                Text("\(Int(prediction.confidence * 100))%")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+            }
+            
+            HStack {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Next Optimal Time")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(prediction.optimalTime.formatted(date: .omitted, time: .shortened))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(.blue)
+                }
+                
+                Spacer()
+                
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("Recommended")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Text(String(format: "%.1fL", prediction.recommendedAmount))
+                        .font(.title3)
+                        .fontWeight(.bold)
+                        .foregroundColor(priorityColor)
+                }
+            }
+            
+            Text(prediction.message)
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding()
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(radius: 2)
+    }
+    
+    private var priorityColor: Color {
+        switch prediction.priority {
+        case .critical: return .red
+        case .high: return .orange
+        case .medium: return .blue
+        case .low: return .green
+        }
+    }
+}
+
+struct AILearningStatsCard: View {
+    let insights: LearningInsights
+    
+    var body: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Image(systemName: "chart.line.uptrend.xyaxis")
+                    .foregroundColor(.green)
+                Text("Learning Progress")
+                    .font(.headline)
+                Spacer()
+            }
+            
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 2), spacing: 12) {
+                StatItem(
+                    title: "Data Points",
+                    value: "\(insights.totalDataPoints)",
+                    color: .blue
+                )
+                
+                StatItem(
+                    title: "Accuracy",
+                    value: "\(Int(insights.recentAccuracy * 100))%",
+                    color: .green
+                )
+                
+                StatItem(
+                    title: "Trend",
+                    value: insights.improvementTrend > 0 ? "+" : "",
+                    color: insights.improvementTrend > 0 ? .green : .red
+                )
+                
+                StatItem(
+                    title: "Confidence",
+                    value: "\(Int(insights.confidenceLevel * 100))%",
+                    color: .purple
+                )
+            }
+        }
+        .padding()
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
+    }
+}
+
+struct StatItem: View {
+    let title: String
+    let value: String
+    let color: Color
+    
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.title3)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
     }
 }
 
@@ -577,4 +779,6 @@ struct ReminderPreviewRow: View {
         .environmentObject(HydrationHistory())
         .environmentObject(AchievementManager())
         .environmentObject(SmartReminderManager())
+        .environmentObject(ProfilePictureManager())
+        .environmentObject(AIWaterPredictor())
 } 

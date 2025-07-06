@@ -17,6 +17,8 @@ struct DrinklyApp: App {
     @StateObject private var hydrationHistory = HydrationHistory()
     @StateObject private var achievementManager = AchievementManager()
     @StateObject private var smartReminderManager = SmartReminderManager()
+    @StateObject private var profilePictureManager = ProfilePictureManager()
+    @StateObject private var aiWaterPredictor = AIWaterPredictor()
 
     var body: some Scene {
         WindowGroup {
@@ -29,6 +31,8 @@ struct DrinklyApp: App {
                 .environmentObject(hydrationHistory)
                 .environmentObject(achievementManager)
                 .environmentObject(smartReminderManager)
+                .environmentObject(profilePictureManager)
+                .environmentObject(aiWaterPredictor)
                 .preferredColorScheme(.light)
                 .onAppear {
                     setupApp()
@@ -112,7 +116,8 @@ struct DrinklyApp: App {
             hydrationHistory: hydrationHistory,
             achievementManager: achievementManager,
             smartReminderManager: smartReminderManager,
-            weatherManager: weatherManager
+            weatherManager: weatherManager,
+            aiWaterPredictor: aiWaterPredictor
         )
         
         // Connect WeatherManager and LocationManager

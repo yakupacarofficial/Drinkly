@@ -21,9 +21,11 @@ class WaterManager: ObservableObject {
     @Published var isAnimating = false
     @Published var showingCelebration = false
     @Published var smartGoalEnabled: Bool = true
+    @Published var personalizedGoalEnabled: Bool = true
     @Published var currentTemperature: Double = 22.0
     @Published var userProfile: UserProfile = UserProfile.default
     @Published var showingProfileSetup = false
+    @Published var aiPrediction: WaterPrediction?
     
     // MARK: - Private Properties
     private var animationTask: Task<Void, Never>?
@@ -36,6 +38,7 @@ class WaterManager: ObservableObject {
     private var achievementManager: AchievementManager?
     private var smartReminderManager: SmartReminderManager?
     private var weatherManager: WeatherManager?
+    private var aiWaterPredictor: AIWaterPredictor?
     
     // MARK: - Computed Properties
     var progressPercentage: Double {
@@ -117,12 +120,14 @@ class WaterManager: ObservableObject {
         hydrationHistory: HydrationHistory,
         achievementManager: AchievementManager,
         smartReminderManager: SmartReminderManager,
-        weatherManager: WeatherManager
+        weatherManager: WeatherManager,
+        aiWaterPredictor: AIWaterPredictor
     ) {
         self.hydrationHistory = hydrationHistory
         self.achievementManager = achievementManager
         self.smartReminderManager = smartReminderManager
         self.weatherManager = weatherManager
+        self.aiWaterPredictor = aiWaterPredictor
         
         // Observe weather changes
         setupWeatherObserver()
@@ -146,8 +151,14 @@ class WaterManager: ObservableObject {
         // Update hydration history safely
         hydrationHistory?.addDrink(drink)
         
+        // Add behavior data to AI model
+        addBehaviorDataToAI(amount: validatedAmount)
+        
         // Check achievements safely
         checkAchievements()
+        
+        // Also check achievements with current data
+        checkAchievementsWithData()
         
         // Save data with error handling
         saveData()
@@ -170,9 +181,17 @@ class WaterManager: ObservableObject {
     
     /// Update daily goal based on user profile and temperature with bounds checking
     func updateDailyGoal() {
-        let baseGoal = userProfile.calculateDailyGoal()
+        let baseGoal: Double
         
-        if smartGoalEnabled {
+        if personalizedGoalEnabled && userProfile.isValid {
+            // Use personalized calculation
+            baseGoal = userProfile.calculateDailyGoal()
+        } else {
+            // Use default goal
+            baseGoal = Constants.defaultDailyGoal
+        }
+        
+        if personalizedGoalEnabled && smartGoalEnabled {
             // Adjust for temperature with bounds checking
             let temperatureAdjustment = calculateTemperatureAdjustment()
             dailyGoal = baseGoal + temperatureAdjustment
@@ -219,6 +238,13 @@ class WaterManager: ObservableObject {
         smartGoalEnabled.toggle()
         updateDailyGoal()
         userDefaults.set(smartGoalEnabled, forKey: "drinkly_smart_goal_enabled")
+    }
+    
+    /// Toggle personalized goal feature
+    func togglePersonalizedGoal() {
+        personalizedGoalEnabled.toggle()
+        updateDailyGoal()
+        userDefaults.set(personalizedGoalEnabled, forKey: "drinkly_personalized_goal_enabled")
     }
     
     // MARK: - Private Methods
@@ -279,6 +305,32 @@ class WaterManager: ObservableObject {
         }
     }
     
+    /// Add behavior data to AI model for learning
+    private func addBehaviorDataToAI(amount: Double) {
+        guard let aiWaterPredictor = aiWaterPredictor else { return }
+        
+        let context = PredictionContext(
+            hour: Calendar.current.component(.hour, from: Date()),
+            weekday: Calendar.current.component(.weekday, from: Date()),
+            temperature: currentTemperature,
+            lastDrinkTime: todayDrinks.count > 1 ? todayDrinks[todayDrinks.count - 2].timestamp : nil,
+            totalDrinksToday: todayDrinks.count,
+            averageDrinkSize: todayDrinks.isEmpty ? 0 : todayDrinks.map { $0.amount }.reduce(0, +) / Double(todayDrinks.count)
+        )
+        
+        let entry = UserBehaviorEntry(
+            timestamp: Date(),
+            amount: amount,
+            context: context,
+            wasSuccessful: true
+        )
+        
+        aiWaterPredictor.addBehaviorData(entry)
+        
+        // Get AI prediction for next optimal drinking time
+        aiPrediction = aiWaterPredictor.predictOptimalDrinking()
+    }
+    
     private func checkAchievements() {
         guard let achievementManager = achievementManager,
               let hydrationHistory = hydrationHistory else { 
@@ -294,6 +346,26 @@ class WaterManager: ObservableObject {
         
         achievementManager.checkAchievements(
             currentStreak: hydrationHistory.currentStreak,
+            totalIntake: totalIntake,
+            consecutiveDays: consecutiveDays,
+            perfectWeek: perfectWeek,
+            perfectMonth: perfectMonth
+        )
+    }
+    
+    /// Check achievements with current data
+    func checkAchievementsWithData() {
+        guard let achievementManager = achievementManager,
+              let hydrationHistory = hydrationHistory else { return }
+        
+        let totalIntake = hydrationHistory.dailyRecords.reduce(0) { $0 + $1.totalIntake }
+        let currentStreak = hydrationHistory.currentStreak
+        let consecutiveDays = calculateConsecutiveDays()
+        let perfectWeek = calculatePerfectWeek()
+        let perfectMonth = calculatePerfectMonth()
+        
+        achievementManager.checkAchievements(
+            currentStreak: currentStreak,
             totalIntake: totalIntake,
             consecutiveDays: consecutiveDays,
             perfectWeek: perfectWeek,
@@ -367,6 +439,12 @@ class WaterManager: ObservableObject {
             smartGoalEnabled = true
         }
         
+        // Load personalized goal setting with validation
+        personalizedGoalEnabled = userDefaults.bool(forKey: "drinkly_personalized_goal_enabled")
+        if userDefaults.object(forKey: "drinkly_personalized_goal_enabled") == nil {
+            personalizedGoalEnabled = true
+        }
+        
         // Load current temperature with bounds checking
         currentTemperature = userDefaults.double(forKey: "drinkly_current_temperature")
         if currentTemperature == 0.0 || currentTemperature < -50.0 || currentTemperature > 60.0 {
@@ -378,6 +456,9 @@ class WaterManager: ObservableObject {
         
         // Update goal based on loaded data
         updateDailyGoal()
+        
+        // Check achievements on app load
+        checkAchievementsWithData()
     }
     
     private func loadTodayData() {

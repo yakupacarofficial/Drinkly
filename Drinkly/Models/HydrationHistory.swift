@@ -291,8 +291,13 @@ class HydrationHistory: ObservableObject {
 // MARK: - UserProfile Extension for Goal Calculation
 extension UserProfile {
     func calculateDailyGoal() -> Double {
-        // Base calculation: 30ml per kg of body weight
-        var baseGoal = weight * 0.03
+        // Enhanced formula based on scientific recommendations
+        // Base: 35ml per kg of body weight
+        var baseGoal = weight * 0.035
+        
+        // Height adjustment: +200ml for every 10cm above 160cm
+        let heightAdjustment = max(0, (height - 160) / 10) * 0.2
+        baseGoal += heightAdjustment
         
         // Activity level adjustments
         switch activityLevel {
@@ -323,7 +328,19 @@ extension UserProfile {
             baseGoal *= 0.95
         }
         
-        // Ensure minimum and maximum values
+        // Ensure minimum and maximum values (1.5L to 5.0L)
         return max(1.5, min(5.0, baseGoal))
+    }
+    
+    /// Calculate temperature-adjusted daily goal
+    /// - Parameter temperature: Current temperature in Celsius
+    /// - Returns: Adjusted daily water goal in liters
+    func calculateDailyGoal(with temperature: Double) -> Double {
+        let baseGoal = calculateDailyGoal()
+        
+        // Temperature adjustment: +150ml per degree above 25°C
+        let temperatureAdjustment = max(0, (temperature - 25)) * 0.15
+        
+        return min(5.0, baseGoal + temperatureAdjustment)
     }
 } 

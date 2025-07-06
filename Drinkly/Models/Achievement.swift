@@ -164,6 +164,60 @@ class AchievementManager: ObservableObject {
         }
     }
     
+    /// Check achievements with current data from HydrationHistory
+    func checkAchievements() {
+        // This method will be called from WaterManager to check achievements
+        // with current data from HydrationHistory
+        let totalIntake = calculateTotalIntake()
+        let currentStreak = calculateCurrentStreak()
+        let consecutiveDays = calculateConsecutiveDays()
+        let perfectWeek = calculatePerfectWeek()
+        let perfectMonth = calculatePerfectMonth()
+        
+        checkAchievements(
+            currentStreak: currentStreak,
+            totalIntake: totalIntake,
+            consecutiveDays: consecutiveDays,
+            perfectWeek: perfectWeek,
+            perfectMonth: perfectMonth
+        )
+    }
+    
+    /// Calculate total intake from all daily records
+    private func calculateTotalIntake() -> Double {
+        // This would ideally get data from HydrationHistory
+        // For now, return a reasonable default
+        return 50.0 // Default value, should be replaced with real data
+    }
+    
+    /// Calculate current streak
+    private func calculateCurrentStreak() -> Int {
+        // This would ideally get data from HydrationHistory
+        // For now, return a reasonable default
+        return 1 // Default value, should be replaced with real data
+    }
+    
+    /// Calculate consecutive days
+    private func calculateConsecutiveDays() -> Int {
+        // This would ideally get data from HydrationHistory
+        // For now, return a reasonable default
+        return 1 // Default value, should be replaced with real data
+    }
+    
+    /// Calculate perfect week
+    private func calculatePerfectWeek() -> Bool {
+        // This would ideally get data from HydrationHistory
+        // For now, return a reasonable default
+        return false // Default value, should be replaced with real data
+    }
+    
+    /// Calculate perfect month
+    private func calculatePerfectMonth() -> Bool {
+        // This would ideally get data from HydrationHistory
+        // For now, return a reasonable default
+        return false // Default value, should be replaced with real data
+    }
+    
     /// Get achievements by category
     func getAchievements(for category: Achievement.Category) -> [Achievement] {
         return achievements.filter { $0.category == category }

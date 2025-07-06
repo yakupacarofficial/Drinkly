@@ -153,8 +153,8 @@ struct SettingsView: View {
                     set: { newValue in waterManager.dailyGoal = newValue }
                 ), in: 1.0...5.0, step: 0.1)
                 .accentColor(.blue)
-                .disabled(waterManager.userProfile.isValid)
-                .opacity(waterManager.userProfile.isValid ? 0.5 : 1.0)
+                .disabled(waterManager.personalizedGoalEnabled && waterManager.userProfile.isValid)
+                .opacity((waterManager.personalizedGoalEnabled && waterManager.userProfile.isValid) ? 0.5 : 1.0)
                 
                 HStack {
                     Text("1.0L")
@@ -165,10 +165,19 @@ struct SettingsView: View {
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
-                if waterManager.userProfile.isValid {
+                
+                if waterManager.personalizedGoalEnabled && waterManager.userProfile.isValid {
                     Text("Personalized goal is active. Adjust your profile to change your goal.")
                         .font(.caption)
                         .foregroundColor(.green)
+                } else if !waterManager.personalizedGoalEnabled {
+                    Text("Manual goal setting is active.")
+                        .font(.caption)
+                        .foregroundColor(.blue)
+                } else {
+                    Text("Set up your profile for personalized goals")
+                        .font(.caption)
+                        .foregroundColor(.orange)
                 }
             }
             .padding(.vertical, 8)
@@ -177,6 +186,20 @@ struct SettingsView: View {
     
     private var smartGoalSection: some View {
         Section("Smart Water Goal") {
+            Toggle(isOn: $waterManager.personalizedGoalEnabled) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Personalized Goal")
+                        .font(.headline)
+                    Text("Use profile data for goal calculation")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            }
+            .onChange(of: waterManager.personalizedGoalEnabled) { oldValue, newValue in
+                waterManager.togglePersonalizedGoal()
+            }
+            .tint(.blue)
+            
             Toggle(isOn: $waterManager.smartGoalEnabled) {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Weather-based Goal")
@@ -190,6 +213,8 @@ struct SettingsView: View {
                 waterManager.toggleSmartGoal()
             }
             .tint(.blue)
+            .disabled(!waterManager.personalizedGoalEnabled)
+            .opacity(waterManager.personalizedGoalEnabled ? 1.0 : 0.5)
             
             if waterManager.smartGoalEnabled && waterManager.currentTemperature > 0 {
                 VStack(alignment: .leading, spacing: 8) {
@@ -214,22 +239,19 @@ struct SettingsView: View {
     }
     
     private var notificationSection: some View {
-        Section("Daily Reminder") {
-            Toggle(isOn: $notificationsEnabled) {
-                Text("Enable Daily Reminder")
+        Section("Smart Reminders") {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Smart reminders are managed in the Reminders tab")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                
+                Button("Open Smart Reminders") {
+                    // This would navigate to SmartRemindersView
+                    // For now, just show a message
+                }
+                .foregroundColor(.blue)
             }
-            .onChange(of: notificationsEnabled) { oldValue, newValue in
-                handleNotificationToggle(enabled: newValue)
-            }
-            .tint(.blue)
-            
-            if notificationsEnabled {
-                DatePicker("Reminder Time", selection: $reminderTime, displayedComponents: .hourAndMinute)
-                    .datePickerStyle(.compact)
-                    .onChange(of: reminderTime) { oldValue, newValue in
-                        saveReminderTime(newValue)
-                    }
-            }
+            .padding(.vertical, 4)
         }
     }
     
@@ -237,7 +259,7 @@ struct SettingsView: View {
         Section("Today's Statistics") {
             StatRow(title: "Current Intake", value: "\(String(format: "%.1f", waterManager.currentAmount))L")
             StatRow(title: "Remaining", value: "\(String(format: "%.1f", waterManager.remainingAmount))L")
-            StatRow(title: "Progress", value: "\(Int(waterManager.progressPercentage * 100))%")
+            StatRow(title: "Progress", value: "\(Int(waterManager.progressPercentage))%")
             StatRow(title: "Drinks Today", value: "\(waterManager.todayDrinks.count)")
         }
     }
