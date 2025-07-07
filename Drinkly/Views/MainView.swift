@@ -696,13 +696,15 @@ struct QuickActionCard: View {
                     Text(title)
                         .font(.headline)
                         .foregroundColor(.primary)
-                    
                     Text(subtitle)
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }
+                .frame(maxWidth: .infinity, alignment: .center)
+                .multilineTextAlignment(.center)
             }
             .frame(maxWidth: .infinity)
+            .frame(height: 120)
             .padding()
             .background(Color(.systemBackground))
             .cornerRadius(12)

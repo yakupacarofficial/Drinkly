@@ -22,6 +22,15 @@ struct ProgressCircleView: View {
     
     var body: some View {
         VStack(spacing: 20) {
+            if mode == .other {
+                Text("Other Liquids")
+                    .font(.headline)
+                    .foregroundColor(.orange)
+            } else if mode == .total {
+                Text("Total Liquid")
+                    .font(.headline)
+                    .foregroundColor(.green)
+            }
             progressContainer
             if mode == .water {
                 progressText
@@ -88,9 +97,11 @@ struct ProgressCircleView: View {
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(iconColor)
-                Text("of \(String(format: "%.1f", dailyGoal / 1000))L")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                if mode == .water {
+                    Text("of \(String(format: "%.1f", dailyGoal / 1000))L")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
             }
         }
     }
