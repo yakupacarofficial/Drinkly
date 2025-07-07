@@ -44,6 +44,8 @@ struct ProgressCircleView: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Liquid progress")
         .accessibilityValue("\(Int(progressValue * 100))% complete, \(String(format: "%.1f", currentAmount)) ml of \(String(format: "%.1f", dailyGoal)) ml")
+        .padding(Constants.UI.progressStrokeWidth / 2)
+        .frame(width: Constants.UI.progressCircleSize, height: Constants.UI.progressCircleSize)
     }
     private var backgroundCircle: some View {
         Circle()

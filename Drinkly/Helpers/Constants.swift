@@ -67,7 +67,7 @@ enum Constants {
     enum UI {
         static let cornerRadius: CGFloat = 16
         static let buttonHeight: CGFloat = 50
-        static let progressCircleSize: CGFloat = 200
+        static let progressCircleSize: CGFloat = 140
         static let progressStrokeWidth: CGFloat = 20
     }
     

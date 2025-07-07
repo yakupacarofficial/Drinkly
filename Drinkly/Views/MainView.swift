@@ -199,37 +199,41 @@ struct MainView: View {
                     .tag(ProgressMode.total)
             }
             .tabViewStyle(PageTabViewStyle(indexDisplayMode: .always))
-            .frame(height: 280)
+            .frame(height: 240)
         }
-        .padding(.bottom, 16)
+        .padding(.top, 24)
     }
     
     // MARK: - Header Section
     private var headerSection: some View {
         VStack(spacing: 16) {
-            WeatherDisplayView()
-            
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Smart Goal")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                    
-                    HStack {
-                        Image(systemName: waterManager.smartGoalEnabled ? "brain.head.profile" : "brain.head.profile")
-                            .foregroundColor(waterManager.smartGoalEnabled ? .blue : .gray)
-                        Text(waterManager.smartGoalEnabled ? "Active" : "Disabled")
-                            .font(.caption)
-                            .foregroundColor(waterManager.smartGoalEnabled ? .blue : .gray)
-                    }
-                }
+            HStack(alignment: .center, spacing: 12) {
+                WeatherDisplayView()
+                    .frame(minHeight: 48)
+                Spacer()
+                smartGoalBox
+                    .frame(minHeight: 48)
             }
-            .padding()
-            .background(Color(.systemGray6))
-            .cornerRadius(12)
-            
             goalStatusCard
         }
+    }
+    
+    private var smartGoalBox: some View {
+        VStack(alignment: .center, spacing: 4) {
+            Text("Smart Goal")
+                .font(.caption)
+                .foregroundColor(.secondary)
+            HStack(spacing: 4) {
+                Image(systemName: waterManager.smartGoalEnabled ? "brain.head.profile" : "brain.head.profile")
+                    .foregroundColor(waterManager.smartGoalEnabled ? .blue : .gray)
+                Text(waterManager.smartGoalEnabled ? "Active" : "Disabled")
+                    .font(.caption)
+                    .foregroundColor(waterManager.smartGoalEnabled ? .blue : .gray)
+            }
+        }
+        .padding(8)
+        .background(Color(.systemGray6))
+        .cornerRadius(12)
     }
     
     // MARK: - Goal Status Card
