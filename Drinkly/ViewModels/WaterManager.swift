@@ -43,15 +43,12 @@ class WaterManager: ObservableObject {
     // MARK: - Computed Properties
     var progressPercentage: Double {
         guard dailyGoal > 0 else { return 0 }
-        // Calculate percentage with better precision handling
         let percentage = (currentAmount / dailyGoal) * 100.0
         
-        // If current amount is very close to or exceeds the goal, return 100%
         if currentAmount >= dailyGoal || percentage >= 99.5 {
             return 100.0
         }
         
-        // Round to 1 decimal place for display
         return min(100.0, max(0.0, round(percentage * 10) / 10))
     }
     
@@ -119,7 +116,6 @@ class WaterManager: ObservableObject {
     
     // MARK: - Public Methods
     
-    /// Set dependencies for integration with other managers
     func setDependencies(
         hydrationHistory: HydrationHistory,
         achievementManager: AchievementManager,
@@ -133,116 +129,82 @@ class WaterManager: ObservableObject {
         self.weatherManager = weatherManager
         self.aiWaterPredictor = aiWaterPredictor
         
-        // Observe weather changes
         setupWeatherObserver()
     }
     
-    /// Add water intake with comprehensive validation
     func addWater(_ amount: Double) {
-        // Validate input amount
-        guard amount > 0 else {
-            return
-        }
+        guard amount > 0 else { return }
         
-        // Set reasonable upper bound (5L per drink)
         let validatedAmount = min(amount, 5.0)
-        
         let drink = WaterDrink(amount: validatedAmount, timestamp: Date())
+        
         todayDrinks.append(drink)
         currentAmount += validatedAmount
         
-        // Update hydration history safely
         hydrationHistory?.addDrink(drink)
-        
-        // Add behavior data to AI model
         addBehaviorDataToAI(amount: validatedAmount)
-        
-        // Check achievements safely
         checkAchievements()
-        
-        // Also check achievements with current data
-        checkAchievementsWithData()
-        
-        // Save data with error handling
         saveData()
         
-        // Show celebration if goal is met
         if isGoalMet && !showingCelebration {
             showCelebration()
         }
         
-        // Trigger animation
         triggerProgressAnimation()
     }
     
-    /// Reset today's progress with validation
     func resetToday() {
         currentAmount = 0.0
         todayDrinks.removeAll()
         saveData()
     }
     
-    /// Update daily goal based on user profile and temperature with bounds checking
     func updateDailyGoal() {
         let baseGoal: Double
         
         if personalizedGoalEnabled && userProfile.isValid {
-            // Use personalized calculation
             baseGoal = userProfile.calculateDailyGoal()
         } else {
-            // Use default goal
             baseGoal = Constants.defaultDailyGoal
         }
         
         if personalizedGoalEnabled && smartGoalEnabled {
-            // Adjust for temperature with bounds checking
             let temperatureAdjustment = calculateTemperatureAdjustment()
             dailyGoal = baseGoal + temperatureAdjustment
         } else {
             dailyGoal = baseGoal
         }
         
-        // Ensure reasonable bounds (1.0L to 5.0L)
         dailyGoal = max(1.0, min(5.0, dailyGoal))
-        
         saveData()
     }
     
-    /// Update user profile with validation
     func updateUserProfile(_ profile: UserProfile) {
-        // Validate profile before updating
-        guard profile.isValid else {
-            return
-        }
+        guard profile.isValid else { return }
         
         userProfile = profile
         
-        // Save profile with error handling
         do {
             try userProfile.save()
         } catch {
-            // Error saving user profile logged
+            // Error saving user profile
         }
         
         updateDailyGoal()
     }
     
-    /// Update temperature with bounds checking
     func updateTemperature(_ temperature: Double) {
-        // Validate temperature range (-50°C to 60°C)
         let validatedTemperature = max(-50.0, min(60.0, temperature))
         currentTemperature = validatedTemperature
         updateDailyGoal()
     }
     
-    /// Toggle smart goal feature
     func toggleSmartGoal() {
         smartGoalEnabled.toggle()
         updateDailyGoal()
         userDefaults.set(smartGoalEnabled, forKey: "drinkly_smart_goal_enabled")
     }
     
-    /// Toggle personalized goal feature
     func togglePersonalizedGoal() {
         personalizedGoalEnabled.toggle()
         updateDailyGoal()
@@ -252,7 +214,6 @@ class WaterManager: ObservableObject {
     // MARK: - Private Methods
     
     private func setupPublishers() {
-        // Debounced goal recalculation
         $userProfile
             .debounce(for: .milliseconds(500), scheduler: RunLoop.main)
             .sink { [weak self] _ in
@@ -269,7 +230,6 @@ class WaterManager: ObservableObject {
     }
     
     private func setupWeatherObserver() {
-        // Observe weather manager temperature changes
         weatherManager?.$currentTemperature
             .debounce(for: .milliseconds(300), scheduler: RunLoop.main)
             .sink { [weak self] temperature in
@@ -285,13 +245,12 @@ class WaterManager: ObservableObject {
                 await MainActor.run {
                     updateProgressDisplay()
                 }
-                try? await Task.sleep(nanoseconds: 2_000_000_000) // 2 seconds
+                try? await Task.sleep(nanoseconds: 2_000_000_000)
             }
         }
     }
     
     private func updateProgressDisplay() {
-        // Update progress display without triggering expensive computations
         objectWillChange.send()
     }
     
@@ -300,14 +259,12 @@ class WaterManager: ObservableObject {
         let tempDifference = currentTemperature - baseTemp
         
         if tempDifference > 0 {
-            // Add 150ml per degree above 22°C
             return tempDifference * 0.15
         } else {
             return 0
         }
     }
     
-    /// Add behavior data to AI model for learning
     private func addBehaviorDataToAI(amount: Double) {
         guard let aiWaterPredictor = aiWaterPredictor else { return }
         
@@ -338,8 +295,6 @@ class WaterManager: ObservableObject {
         )
         
         aiWaterPredictor.recordUserBehavior(amount: amount, wasSuccessful: true)
-        
-        // Get AI prediction for next optimal drinking time
         aiWaterPredictor.updatePredictions()
         aiPrediction = aiWaterPredictor.currentPrediction
     }
@@ -350,7 +305,6 @@ class WaterManager: ObservableObject {
             return 
         }
         
-        // Safely calculate total intake with bounds checking
         let totalIntake = max(0, hydrationHistory.dailyRecords.reduce(0) { $0 + $1.totalIntake })
         let consecutiveDays = calculateConsecutiveDays()
         let perfectWeek = calculatePerfectWeek()
@@ -365,7 +319,6 @@ class WaterManager: ObservableObject {
         )
     }
     
-    /// Check achievements with current data
     func checkAchievementsWithData() {
         guard let achievementManager = achievementManager,
               let hydrationHistory = hydrationHistory else { return }
@@ -421,7 +374,7 @@ class WaterManager: ObservableObject {
                 isAnimating = true
             }
             
-            try? await Task.sleep(nanoseconds: 500_000_000) // 0.5 seconds
+            try? await Task.sleep(nanoseconds: 500_000_000)
             
             await MainActor.run {
                 isAnimating = false
@@ -431,11 +384,8 @@ class WaterManager: ObservableObject {
     
     private func showCelebration() {
         showingCelebration = true
-        
-        // Schedule daily summary notification if goal is met
         scheduleDailySummaryNotification()
         
-        // Hide celebration after 3 seconds
         Task {
             try? await Task.sleep(nanoseconds: 3_000_000_000)
             await MainActor.run {
@@ -444,7 +394,6 @@ class WaterManager: ObservableObject {
         }
     }
     
-    /// Schedule daily summary notification with custom sound
     private func scheduleDailySummaryNotification() {
         guard let hydrationHistory = hydrationHistory else { return }
         
@@ -460,34 +409,25 @@ class WaterManager: ObservableObject {
     }
     
     private func loadData() {
-        // Load user profile with error handling
         userProfile = UserProfile.load()
         
-        // Load smart goal setting with validation
         smartGoalEnabled = userDefaults.bool(forKey: "drinkly_smart_goal_enabled")
         if userDefaults.object(forKey: "drinkly_smart_goal_enabled") == nil {
             smartGoalEnabled = true
         }
         
-        // Load personalized goal setting with validation
         personalizedGoalEnabled = userDefaults.bool(forKey: "drinkly_personalized_goal_enabled")
         if userDefaults.object(forKey: "drinkly_personalized_goal_enabled") == nil {
             personalizedGoalEnabled = true
         }
         
-        // Load current temperature with bounds checking
         currentTemperature = userDefaults.double(forKey: "drinkly_current_temperature")
         if currentTemperature == 0.0 || currentTemperature < -50.0 || currentTemperature > 60.0 {
             currentTemperature = 22.0
         }
         
-        // Load today's data with error handling
         loadTodayData()
-        
-        // Update goal based on loaded data
         updateDailyGoal()
-        
-        // Check achievements on app load
         checkAchievementsWithData()
     }
     
@@ -499,13 +439,10 @@ class WaterManager: ObservableObject {
             if let data = userDefaults.data(forKey: todayKey) {
                 let todayData = try JSONDecoder().decode(TodayData.self, from: data)
                 
-                // Validate loaded data
                 currentAmount = max(0, todayData.amount)
                 todayDrinks = todayData.drinks.filter { $0.amount > 0 }
             }
         } catch {
-            // Error loading today's data logged
-            // Reset to safe defaults
             currentAmount = 0.0
             todayDrinks = []
         }
@@ -520,18 +457,14 @@ class WaterManager: ObservableObject {
             let data = try JSONEncoder().encode(todayData)
             userDefaults.set(data, forKey: todayKey)
             
-            // Save current temperature
             userDefaults.set(currentTemperature, forKey: "drinkly_current_temperature")
         } catch {
-            // Error saving data logged
+            // Error saving data
         }
     }
-    
-
 }
 
 // MARK: - Supporting Models
-
 struct TodayData: Codable {
     let amount: Double
     let drinks: [WaterDrink]

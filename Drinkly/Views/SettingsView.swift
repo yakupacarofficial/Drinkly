@@ -59,12 +59,6 @@ struct SettingsView: View {
         .onAppear {
             loadSettings()
         }
-        .onChange(of: themeManager.themeMode) { _, _ in
-            // Force UI refresh when theme changes
-            DispatchQueue.main.async {
-                // This will trigger a UI refresh
-            }
-        }
         .alert("Reset Today's Progress", isPresented: $showingResetAlert) {
             Button("Reset", role: .destructive) {
                 waterManager.resetToday()
@@ -99,10 +93,7 @@ struct SettingsView: View {
         } message: {
             Text("Bu işlem tüm kullanıcı verilerini, ayarları, izinleri ve profil bilgilerini sıfırlar. Geri alınamaz. Devam etmek istiyor musunuz?")
         }
-        .sheet(isPresented: $showingProfileView, onDismiss: {
-            // Ensure UI updates after profile change
-            // No-op, as waterManager.dailyGoal is @Published
-        }) {
+        .sheet(isPresented: $showingProfileView) {
             ProfileView(existingProfile: waterManager.userProfile)
                 .environmentObject(waterManager)
         }
@@ -267,7 +258,7 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .onChange(of: waterManager.personalizedGoalEnabled) { oldValue, newValue in
+            .onChange(of: waterManager.personalizedGoalEnabled) { _, _ in
                 waterManager.togglePersonalizedGoal()
             }
             .tint(.blue)
@@ -281,7 +272,7 @@ struct SettingsView: View {
                         .foregroundColor(.secondary)
                 }
             }
-            .onChange(of: waterManager.smartGoalEnabled) { oldValue, newValue in
+            .onChange(of: waterManager.smartGoalEnabled) { _, _ in
                 waterManager.toggleSmartGoal()
             }
             .tint(.blue)
@@ -439,7 +430,6 @@ struct SettingsView: View {
     }
     
     private func saveSettings() {
-        
         if notificationsEnabled {
             let comps = Calendar.current.dateComponents([.hour, .minute], from: reminderTime)
             notificationManager.scheduleDailyNotification(hour: comps.hour ?? 9, minute: comps.minute ?? 0)
@@ -468,33 +458,23 @@ struct SettingsView: View {
     }
     
     private func resetAllProgress() {
-        // Reset all managers
         waterManager.resetToday()
         achievementManager.resetAllProgress()
         hydrationHistory.resetAllData()
         smartReminderManager.resetAllReminders()
-        
-        // Cancel all notifications
         notificationManager.cancelAllNotifications()
-        
-        // Reset user profile to default
         waterManager.updateUserProfile(UserProfile.default)
-        
-        // Save all changes
         waterManager.saveData()
         hydrationHistory.saveHistory()
         smartReminderManager.saveReminders()
     }
 
-    /// Tüm kullanıcı verilerini, ayarları ve izinleri sıfırlar
     private func fullResetAllDataAndSettings() {
-        // Tüm UserDefaults anahtarlarını sil
         if let appDomain = Bundle.main.bundleIdentifier {
             UserDefaults.standard.removePersistentDomain(forName: appDomain)
             UserDefaults.standard.synchronize()
         }
 
-        // Tüm manager'ları sıfırla
         waterManager.resetToday()
         achievementManager.resetAllProgress()
         hydrationHistory.resetAllData()
@@ -503,15 +483,10 @@ struct SettingsView: View {
         profilePictureManager.removeProfileImage()
         themeManager.setThemeMode(.system)
         notificationManager.cancelAllNotifications()
-
-        // Bildirim izinlerini sıfırlamak için kullanıcıya tekrar izin isteği gösterilebilir
         notificationManager.requestAuthorization { _ in }
 
-        // Kullanıcıya bilgi ver
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            // Başarılı sıfırlama mesajı göster
             self.showingFullResetAlert = false
-            // Burada bir başarı mesajı gösterilebilir
         }
     }
 }

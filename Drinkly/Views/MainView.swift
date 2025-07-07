@@ -24,7 +24,7 @@ struct MainView: View {
     @EnvironmentObject private var aiWaterPredictor: AIWaterPredictor
     @EnvironmentObject private var aiReminderManager: AIReminderManager
     @EnvironmentObject private var themeManager: ThemeManager
-    @StateObject private var liquidManager = LiquidManager() // Yeni eklenen LiquidManager
+    @StateObject private var liquidManager = LiquidManager()
     
     // MARK: - State Properties
     @State private var selectedTab: Tab = .home
@@ -36,7 +36,7 @@ struct MainView: View {
     @State private var isLoading = false
     @State private var showingError = false
     @State private var errorMessage = ""
-    @State private var progressMode: ProgressMode = .water // Water Only / Total Liquid
+    @State private var progressMode: ProgressMode = .water
     
     enum Tab {
         case home, statistics, achievements, reminders
@@ -52,20 +52,7 @@ struct MainView: View {
     
     var body: some View {
         TabView(selection: $selectedTab) {
-            // Home Tab
             homeView
-                .environmentObject(waterManager)
-                .environmentObject(locationManager)
-                .environmentObject(weatherManager)
-                .environmentObject(notificationManager)
-                .environmentObject(performanceMonitor)
-                .environmentObject(hydrationHistory)
-                .environmentObject(achievementManager)
-                .environmentObject(smartReminderManager)
-                .environmentObject(profilePictureManager)
-                .environmentObject(aiWaterPredictor)
-                .environmentObject(aiReminderManager)
-                .environmentObject(themeManager)
                 .environmentObject(liquidManager)
                 .tabItem {
                     Image(systemName: "house.fill")
@@ -73,20 +60,7 @@ struct MainView: View {
                 }
                 .tag(Tab.home)
             
-            // Statistics Tab
             StatisticsView()
-                .environmentObject(waterManager)
-                .environmentObject(locationManager)
-                .environmentObject(weatherManager)
-                .environmentObject(notificationManager)
-                .environmentObject(performanceMonitor)
-                .environmentObject(hydrationHistory)
-                .environmentObject(achievementManager)
-                .environmentObject(smartReminderManager)
-                .environmentObject(profilePictureManager)
-                .environmentObject(aiWaterPredictor)
-                .environmentObject(aiReminderManager)
-                .environmentObject(themeManager)
                 .environmentObject(liquidManager)
                 .tabItem {
                     Image(systemName: "chart.bar.fill")
@@ -94,41 +68,14 @@ struct MainView: View {
                 }
                 .tag(Tab.statistics)
             
-            // Achievements Tab
             AchievementsView()
-                .environmentObject(waterManager)
-                .environmentObject(locationManager)
-                .environmentObject(weatherManager)
-                .environmentObject(notificationManager)
-                .environmentObject(performanceMonitor)
-                .environmentObject(hydrationHistory)
-                .environmentObject(achievementManager)
-                .environmentObject(smartReminderManager)
-                .environmentObject(profilePictureManager)
-                .environmentObject(aiWaterPredictor)
-                .environmentObject(aiReminderManager)
-                .environmentObject(themeManager)
-                .environmentObject(liquidManager)
                 .tabItem {
                     Image(systemName: "trophy.fill")
                     Text("Achievements")
                 }
                 .tag(Tab.achievements)
             
-            // Smart Reminders Tab
             SmartRemindersView(smartReminderManager: smartReminderManager)
-                .environmentObject(waterManager)
-                .environmentObject(locationManager)
-                .environmentObject(weatherManager)
-                .environmentObject(notificationManager)
-                .environmentObject(performanceMonitor)
-                .environmentObject(hydrationHistory)
-                .environmentObject(achievementManager)
-                .environmentObject(smartReminderManager)
-                .environmentObject(profilePictureManager)
-                .environmentObject(aiWaterPredictor)
-                .environmentObject(aiReminderManager)
-                .environmentObject(themeManager)
                 .environmentObject(liquidManager)
                 .tabItem {
                     Image(systemName: "bell.fill")
@@ -141,50 +88,13 @@ struct MainView: View {
             setupApp()
         }
         .onChange(of: waterManager.todayDrinks) { _, _ in
-            // WaterManager'dan su eklenince LiquidManager'ı güncelle
-            let waterDrinks = waterManager.todayDrinks.map { drink in
-                LiquidDrink(
-                    type: .water,
-                    name: "Water",
-                    amount: drink.amount * 1000, // L'den ml'ye çevir
-                    date: drink.timestamp
-                )
-            }
-            
-            // Sadece su içeceklerini güncelle, diğerlerini koru
-            let otherDrinks = liquidManager.drinks.filter { $0.type != .water }
-            liquidManager.drinks = waterDrinks + otherDrinks
-            liquidManager.saveDrinks()
+            updateLiquidManagerFromWaterManager()
         }
         .sheet(isPresented: $showingSettings) {
             SettingsView()
-                .environmentObject(waterManager)
-                .environmentObject(locationManager)
-                .environmentObject(weatherManager)
-                .environmentObject(notificationManager)
-                .environmentObject(performanceMonitor)
-                .environmentObject(hydrationHistory)
-                .environmentObject(achievementManager)
-                .environmentObject(smartReminderManager)
-                .environmentObject(profilePictureManager)
-                .environmentObject(aiWaterPredictor)
-                .environmentObject(aiReminderManager)
-                .environmentObject(themeManager)
         }
         .sheet(isPresented: $showingProfile) {
             ProfileView(existingProfile: waterManager.userProfile)
-                .environmentObject(waterManager)
-                .environmentObject(locationManager)
-                .environmentObject(weatherManager)
-                .environmentObject(notificationManager)
-                .environmentObject(performanceMonitor)
-                .environmentObject(hydrationHistory)
-                .environmentObject(achievementManager)
-                .environmentObject(smartReminderManager)
-                .environmentObject(profilePictureManager)
-                .environmentObject(aiWaterPredictor)
-                .environmentObject(aiReminderManager)
-                .environmentObject(themeManager)
         }
         .sheet(isPresented: $liquidManager.showingAddLiquidSheet) {
             AddLiquidView()
@@ -234,25 +144,12 @@ struct MainView: View {
                 
                 ScrollView {
                     VStack(spacing: 24) {
-                        // Header with weather and location
                         headerSection
-                        
-                        // Main progress circle (swipeable)
                         progressCircleSwitcher
-                        
-                        // Quick actions
                         quickActionsSection
-                        
-                        // Today's summary
                         todaySummarySection
-                        
-                        // AI Insights
                         aiInsightsSection
-                        
-                        // Recent achievements
                         recentAchievementsSection
-                        
-                        // Smart reminders preview
                         smartRemindersPreview
                     }
                     .padding()
@@ -310,10 +207,8 @@ struct MainView: View {
     // MARK: - Header Section
     private var headerSection: some View {
         VStack(spacing: 16) {
-            // Weather display
             WeatherDisplayView()
             
-            // Smart goal indicator
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Smart Goal")
@@ -333,7 +228,6 @@ struct MainView: View {
             .background(Color(.systemGray6))
             .cornerRadius(12)
             
-            // Goal status
             goalStatusCard
         }
     }
@@ -366,7 +260,6 @@ struct MainView: View {
                 }
             }
             
-            // Progress bar
             ProgressView(value: waterManager.progressPercentage / 100)
                 .progressViewStyle(LinearProgressViewStyle(tint: waterManager.progressColor))
                 .frame(height: 8)
@@ -482,12 +375,10 @@ struct MainView: View {
             
             if !aiWaterPredictor.isAnalyzing {
                 VStack(spacing: 12) {
-                    // AI Prediction Card
                     if let prediction = waterManager.aiPrediction {
                         AIPredictionCard(prediction: prediction)
                     }
                     
-                    // Learning Progress
                     if let insights = aiWaterPredictor.learningInsights {
                         HStack {
                             Image(systemName: "brain.head.profile")
@@ -505,7 +396,6 @@ struct MainView: View {
                         .cornerRadius(8)
                     }
                     
-                    // AI Stats
                     if let insights = aiWaterPredictor.learningInsights {
                         AILearningStatsCard(insights: insights)
                     }
@@ -625,7 +515,6 @@ struct MainView: View {
     private func setupApp() {
         performanceMonitor.startTiming("app_setup")
         
-        // Set up dependencies
         waterManager.setDependencies(
             hydrationHistory: hydrationHistory,
             achievementManager: achievementManager,
@@ -634,24 +523,31 @@ struct MainView: View {
             aiWaterPredictor: aiWaterPredictor
         )
         
-        // LiquidManager'a WaterManager'ı set et
         liquidManager.setWaterManager(waterManager)
-        
-        // Request location permissions
         locationManager.requestLocationPermission()
-        
-        // Request notification permissions
         notificationManager.requestAuthorization()
-        
-        // Analyze drinking patterns for smart reminders
         smartReminderManager.analyzeAndSuggest()
         
         performanceMonitor.endTiming("app_setup")
     }
+    
+    private func updateLiquidManagerFromWaterManager() {
+        let waterDrinks = waterManager.todayDrinks.map { drink in
+            LiquidDrink(
+                type: .water,
+                name: "Water",
+                amount: drink.amount * 1000,
+                date: drink.timestamp
+            )
+        }
+        
+        let otherDrinks = liquidManager.drinks.filter { $0.type != .water }
+        liquidManager.drinks = waterDrinks + otherDrinks
+        liquidManager.saveDrinks()
+    }
 }
 
 // MARK: - AI Supporting Views
-
 struct AIPredictionCard: View {
     let prediction: WaterPrediction
     
@@ -778,7 +674,6 @@ struct StatItem: View {
 }
 
 // MARK: - Supporting Views
-
 struct QuickActionCard: View {
     let icon: String
     let title: String

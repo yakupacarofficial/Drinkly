@@ -71,12 +71,38 @@ enum Constants {
         static let progressStrokeWidth: CGFloat = 20
     }
     
+    // MARK: - Performance
+    
+    /// Performance optimization constants
+    enum Performance {
+        static let debounceDelay: TimeInterval = 0.3
+        static let progressUpdateInterval: TimeInterval = 2.0
+        static let animationDuration: TimeInterval = 0.5
+        static let celebrationDuration: TimeInterval = 3.0
+        static let cacheTimeout: TimeInterval = 3600 // 1 hour
+        static let locationCacheTimeout: TimeInterval = 300 // 5 minutes
+    }
+    
+    // MARK: - Validation
+    
+    /// Input validation constants
+    enum Validation {
+        static let minWaterAmount: Double = 0.1
+        static let maxWaterAmount: Double = 5.0
+        static let minTemperature: Double = -50.0
+        static let maxTemperature: Double = 60.0
+        static let minAge: Int = 1
+        static let maxAge: Int = 120
+        static let minWeight: Double = 10.0
+        static let maxWeight: Double = 300.0
+    }
+    
     // MARK: - Weather API
     
     /// OpenWeatherMap API configuration
     enum WeatherAPI {
         static let baseURL = "https://api.openweathermap.org/data/2.5"
-        static let apiKey = "00ddac1192baf9f196b79a6dbabffa9d" // OpenWeatherMap API Key
+        static let apiKey = "00ddac1192baf9f196b79a6dbabffa9d"
         static let cacheTimeout: TimeInterval = 3600 // 1 hour cache
     }
     
@@ -92,5 +118,21 @@ enum Constants {
         static let cityNotFound = "Could not determine city name"
         static let weatherFetchError = "Failed to fetch weather data"
         static let networkError = "Network error. Please check your connection."
+        static let invalidInput = "Please enter a valid amount"
+        static let profileUpdateSuccess = "Profile updated successfully"
+        static let reminderAdded = "Reminder added successfully"
+        static let reminderDeleted = "Reminder deleted successfully"
+    }
+    
+    // MARK: - Error Codes
+    
+    /// Error codes for better error handling
+    enum ErrorCodes {
+        static let networkError = 1001
+        static let locationError = 1002
+        static let weatherError = 1003
+        static let dataSaveError = 1004
+        static let validationError = 1005
+        static let permissionError = 1006
     }
 } 

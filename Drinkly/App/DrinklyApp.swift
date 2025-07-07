@@ -38,12 +38,6 @@ struct DrinklyApp: App {
                 .environmentObject(aiReminderManager)
                 .environmentObject(themeManager)
                 .preferredColorScheme(themeManager.currentColorScheme)
-                .onChange(of: themeManager.themeMode) { _, _ in
-                    // Force UI update when theme changes
-                    DispatchQueue.main.async {
-                        // This will trigger a UI refresh
-                    }
-                }
                 .onAppear {
                     setupApp()
                 }
@@ -80,41 +74,26 @@ struct DrinklyApp: App {
     private func setupApp() {
         PerformanceMonitor.shared.startTiming("app_initialization")
         
-        // Configure app appearance
         configureAppAppearance()
-        
-        // Set up managers
         setupManagers()
-        
-        // Request permissions
         requestPermissions()
-        
-        // Load initial data
         loadInitialData()
         
         PerformanceMonitor.shared.endTiming("app_initialization")
-        
-        // Log app launch
     }
     
     // MARK: - App Configuration
     private func configureAppAppearance() {
-        // Configure navigation bar appearance
         let navigationBarAppearance = UINavigationBarAppearance()
         navigationBarAppearance.configureWithOpaqueBackground()
         navigationBarAppearance.backgroundColor = UIColor.systemBackground
-        navigationBarAppearance.titleTextAttributes = [
-            .foregroundColor: UIColor.label
-        ]
-        navigationBarAppearance.largeTitleTextAttributes = [
-            .foregroundColor: UIColor.label
-        ]
+        navigationBarAppearance.titleTextAttributes = [.foregroundColor: UIColor.label]
+        navigationBarAppearance.largeTitleTextAttributes = [.foregroundColor: UIColor.label]
         
         UINavigationBar.appearance().standardAppearance = navigationBarAppearance
         UINavigationBar.appearance().compactAppearance = navigationBarAppearance
         UINavigationBar.appearance().scrollEdgeAppearance = navigationBarAppearance
         
-        // Configure tab bar appearance
         let tabBarAppearance = UITabBarAppearance()
         tabBarAppearance.configureWithOpaqueBackground()
         tabBarAppearance.backgroundColor = UIColor.systemBackground
@@ -125,7 +104,6 @@ struct DrinklyApp: App {
     
     // MARK: - Manager Setup
     private func setupManagers() {
-        // Set up dependencies for WaterManager
         waterManager.setDependencies(
             hydrationHistory: hydrationHistory,
             achievementManager: achievementManager,
@@ -134,48 +112,30 @@ struct DrinklyApp: App {
             aiWaterPredictor: aiWaterPredictor
         )
         
-        // Connect WeatherManager and LocationManager
         locationManager.weatherManager = weatherManager
-        
-        // Set up notification manager
         notificationManager.configure()
-        
-        // Initialize smart reminders
         smartReminderManager.analyzeAndSuggest()
-        
-        // Initialize AI reminder manager
         aiReminderManager.analyzeAndSuggestReminders()
-        
-        // Load achievement data
         achievementManager.loadAchievements()
     }
     
     // MARK: - Permission Requests
     private func requestPermissions() {
-        // Request location permission
         locationManager.requestLocationPermission()
-        
-        // Request notification permission
         notificationManager.requestAuthorization()
     }
     
     // MARK: - Initial Data Loading
     private func loadInitialData() {
-        // Load user profile
         let userProfile = UserProfile.load()
         waterManager.updateUserProfile(userProfile)
         
-        // Load location data
         locationManager.loadLastLocation()
         
-        // Load weather data and update water manager
         weatherManager.loadCachedData()
         waterManager.updateTemperature(weatherManager.currentTemperature)
         
-        // Load hydration history
         hydrationHistory.loadHistory()
-        
-        // Check for achievements
         checkInitialAchievements()
     }
     
@@ -222,68 +182,49 @@ struct DrinklyApp: App {
 }
 
 // MARK: - App Lifecycle Extensions
-
 extension DrinklyApp {
     func applicationDidBecomeActive() {
-        
-        // Refresh data when app becomes active
         locationManager.refreshLocation()
         waterManager.updateDailyGoal()
-        
-        // Check for new achievements
         checkInitialAchievements()
     }
     
     func applicationWillResignActive() {
-        
-        // Save current state
         waterManager.saveData()
         hydrationHistory.saveHistory()
         achievementManager.saveUnlockedAchievements()
     }
     
     func applicationDidEnterBackground() {
-        
-        // Schedule background tasks if needed
         scheduleBackgroundTasks()
     }
     
     private func scheduleBackgroundTasks() {
-        // Schedule daily summary notification
         notificationManager.scheduleDailySummary()
-        
-        // Schedule smart reminder analysis
         smartReminderManager.analyzeAndSuggest()
-        
-        // Schedule AI reminder analysis
         aiReminderManager.analyzeAndSuggestReminders()
     }
 }
 
 // MARK: - Performance Monitoring Extensions
-
 extension DrinklyApp {
     func logPerformanceMetrics() {
-        let metrics = PerformanceMonitor.shared.metrics
-        
-        for (_, _) in metrics {
-            // Performance metric logged
-        }
+        // MARK: - Performance Monitoring
+        #if DEBUG
+        let _ = PerformanceMonitor.shared.metrics
+        #endif
+        // Performance metrics logged for debugging
     }
 }
 
 // MARK: - Error Handling Extensions
-
 extension DrinklyApp {
     func handleAppError(_ error: Error) {
-        
-        // Log error for debugging
-        // App error logged
+        // Error logged for debugging
     }
 }
 
 // MARK: - Data Management Extensions
-
 extension DrinklyApp {
     func exportUserData() -> Data? {
         let exportData = AppExportData(
@@ -308,7 +249,6 @@ extension DrinklyApp {
             return false
         }
         
-        // Import data to managers
         waterManager.importData(importData.waterManagerData)
         hydrationHistory.importData(importData.hydrationHistoryData)
         achievementManager.importData(importData.achievementManagerData)
@@ -319,7 +259,6 @@ extension DrinklyApp {
 }
 
 // MARK: - Supporting Models
-
 struct AppExportData: Codable {
     let waterManagerData: WaterManagerData
     let hydrationHistoryData: [DailyHydration]
@@ -337,7 +276,6 @@ struct AppExportData: Codable {
 }
 
 // MARK: - Manager Extensions for Data Import/Export
-
 extension WaterManager {
     func importData(_ data: AppExportData.WaterManagerData) {
         currentAmount = data.currentAmount
