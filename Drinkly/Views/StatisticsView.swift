@@ -170,12 +170,19 @@ struct TimeBasedChart: View {
     let title: String
     let color: Color
     let timeRange: TimeRange
+    @Environment(\.colorScheme) private var colorScheme
+    @State private var selectedBar: TimeData.ID? = nil
     
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(title)
-                .font(.headline)
-                .foregroundColor(.primary)
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text(title)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                Spacer()
+                LegendView(color: color)
+            }
+            .padding(.bottom, 2)
             
             if data.isEmpty {
                 EmptyChartView()
@@ -186,32 +193,73 @@ struct TimeBasedChart: View {
                         y: .value("Amount", item.value)
                     )
                     .foregroundStyle(color.gradient)
-                    .cornerRadius(4)
+                    .cornerRadius(6)
+                    .annotation(position: .overlay, alignment: .top) {
+                        Text("\(item.value, specifier: "%.1f")")
+                            .font(.caption)
+                            .fontWeight(.bold)
+                            .foregroundColor(.primary)
+                            .padding(4)
+                            .background(Color(.systemBackground).opacity(0.8))
+                            .cornerRadius(6)
+                            .shadow(radius: 2)
+                    }
                 }
-                .frame(height: 200)
+                .frame(height: 240)
                 .chartXAxis {
-                    AxisMarks { value in
-                        if let label = value.as(String.self) {
-                            // Show only specific labels based on time range
-                            if shouldShowLabel(label) {
-                                AxisValueLabel {
-                                    Text(label)
-                                        .font(.caption)
-                                        .foregroundColor(.primary)
-                                }
+                    AxisMarks(preset: .aligned, position: .bottom, values: .automatic) { value in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7, dash: [2,2]))
+                            .foregroundStyle(Color.secondary.opacity(0.25))
+                        AxisTick(stroke: StrokeStyle(lineWidth: 1))
+                            .foregroundStyle(Color.secondary)
+                        AxisValueLabel() {
+                            if let label = value.as(String.self), shouldShowLabel(label) {
+                                Text(label)
+                                    .font(.caption2)
+                                    .foregroundColor(.primary)
                             }
                         }
                     }
                 }
                 .chartYAxis {
-                    AxisMarks { value in
-                        AxisValueLabel {
+                    AxisMarks(position: .leading, values: .automatic) { value in
+                        AxisGridLine(stroke: StrokeStyle(lineWidth: 0.7, dash: [2,2]))
+                            .foregroundStyle(Color.secondary.opacity(0.25))
+                        AxisTick(stroke: StrokeStyle(lineWidth: 1))
+                            .foregroundStyle(Color.secondary)
+                        AxisValueLabel() {
                             Text("\(String(format: "%.1f", (value.as(Double.self) ?? 0) / 1000))L")
-                                .font(.caption)
+                                .font(.caption2)
                                 .foregroundColor(.secondary)
                         }
                     }
                 }
+                .chartOverlay { proxy in
+                    GeometryReader { geo in
+                        Rectangle().fill(Color.clear).contentShape(Rectangle())
+                            .gesture(DragGesture(minimumDistance: 0)
+                                .onChanged { value in
+                                    let location = value.location
+                                    if let (element, _) = proxy.value(at: location, as: (String, Double).self) {
+                                        if let found = data.first(where: { $0.label == element }) {
+                                            selectedBar = found.id
+                                        }
+                                    }
+                                }
+                                .onEnded { _ in
+                                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                                        selectedBar = nil
+                                    }
+                                }
+                            )
+                    }
+                }
+                .background(
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : Color(.systemBackground))
+                        .shadow(color: color.opacity(0.08), radius: 8, x: 0, y: 2)
+                )
+                .padding(.vertical, 4)
             } else {
                 Text("Charts available in iOS 16+")
                     .foregroundColor(.secondary)
@@ -224,27 +272,63 @@ struct TimeBasedChart: View {
             }
         }
         .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(12)
+        .background(
+            RoundedRectangle(cornerRadius: 16)
+                .fill(colorScheme == .dark ? Color(.secondarySystemBackground) : Color(.systemBackground))
+                .shadow(color: color.opacity(0.10), radius: 8, x: 0, y: 2)
+        )
+        .padding(.vertical, 4)
     }
     
     private func shouldShowLabel(_ label: String) -> Bool {
         switch timeRange {
         case .daily:
-            // Show only every 6 hours for daily view
             let hour = Int(label.replacingOccurrences(of: ":00", with: "")) ?? 0
             return hour % 6 == 0
         case .weekly:
-            // Show all days for weekly view
             return true
         case .monthly:
-            // Show only every 7 days for monthly view
             let day = Int(label.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: "dd", with: "")) ?? 0
             return day % 7 == 0 || day == 1
         case .yearly:
-            // Show all months for yearly view
             return true
         }
+    }
+}
+
+// Legend for the chart
+struct LegendView: View {
+    let color: Color
+    var body: some View {
+        HStack(spacing: 6) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(color)
+                .frame(width: 18, height: 10)
+            Text("Intake (ml)")
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+    }
+}
+
+// Tooltip for selected bar
+struct TooltipView: View {
+    let label: String
+    let value: Double
+    let color: Color
+    var body: some View {
+        VStack(spacing: 4) {
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(.white)
+            Text("\(String(format: "%.0f ml", value))")
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundColor(.white)
+        }
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 8).fill(color.opacity(0.95)))
+        .shadow(radius: 2)
     }
 }
 
